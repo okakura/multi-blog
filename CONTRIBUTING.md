@@ -12,12 +12,14 @@ Thank you for your interest in contributing to the Multi-Blog Platform! This doc
 ## 📋 Development Workflow
 
 ### Prerequisites
+
 - Node.js 18+
 - Rust 1.70+
 - PostgreSQL 14+
 - pnpm package manager
 
 ### Local Development
+
 ```bash
 # Start both frontend and backend
 ./dev.sh dev:both
@@ -28,6 +30,7 @@ Thank you for your interest in contributing to the Multi-Blog Platform! This doc
 ```
 
 ### Project Structure
+
 ```
 multi-blog/
 ├── src/           # React frontend
@@ -39,6 +42,7 @@ multi-blog/
 ## 🐛 Bug Reports
 
 When filing bug reports, please include:
+
 - Clear description of the issue
 - Steps to reproduce
 - Expected vs actual behavior
@@ -48,6 +52,7 @@ When filing bug reports, please include:
 ## ✨ Feature Requests
 
 Before submitting feature requests:
+
 - Check existing issues to avoid duplicates
 - Provide clear use cases and benefits
 - Consider backward compatibility
@@ -56,6 +61,7 @@ Before submitting feature requests:
 ## 🔧 Code Style
 
 ### Frontend (TypeScript/React)
+
 - Use TypeScript for all new code
 - Follow existing component patterns
 - Use Tailwind CSS for styling
@@ -63,6 +69,7 @@ Before submitting feature requests:
 - Add proper error handling
 
 ### Backend (Rust)
+
 - Follow Rust conventions (rustfmt, clippy)
 - Add proper error handling
 - Include tests for new features
@@ -70,6 +77,7 @@ Before submitting feature requests:
 - Use meaningful variable names
 
 ### General Guidelines
+
 - Write clear commit messages
 - Keep commits focused and atomic
 - Add tests for new functionality
@@ -78,6 +86,7 @@ Before submitting feature requests:
 ## 🧪 Testing
 
 ### Running Tests
+
 ```bash
 # All tests
 ./dev.sh test
@@ -90,6 +99,7 @@ cd api && cargo test
 ```
 
 ### Writing Tests
+
 - Add unit tests for new functions
 - Include integration tests for APIs
 - Test error conditions
@@ -98,6 +108,7 @@ cd api && cargo test
 ## 📝 Commit Messages
 
 Use conventional commit format:
+
 ```
 type(scope): description
 
@@ -107,6 +118,7 @@ docs(readme): update installation instructions
 ```
 
 Types:
+
 - `feat`: New features
 - `fix`: Bug fixes
 - `docs`: Documentation
@@ -129,6 +141,7 @@ Types:
    - Testing instructions
 
 ### Pull Request Checklist
+
 - [ ] Code follows project style guidelines
 - [ ] Tests pass locally
 - [ ] New functionality has tests
@@ -139,6 +152,7 @@ Types:
 ## 🏷️ Versioning
 
 We use [Semantic Versioning](https://semver.org/):
+
 - **MAJOR**: Incompatible API changes
 - **MINOR**: New functionality (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
@@ -152,6 +166,7 @@ We use [Semantic Versioning](https://semver.org/):
 ## 🙏 Recognition
 
 Contributors will be recognized in:
+
 - CHANGELOG.md for significant contributions
 - README.md contributors section
 - Release notes for major features
