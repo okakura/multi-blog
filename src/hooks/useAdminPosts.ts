@@ -273,3 +273,174 @@ export const useAdminDomainSettings = (domain: string = 'tech.blog') => {
     refresh: mutate,
   }
 }
+
+// Analytics-specific hooks
+export const useAnalyticsOverview = (days = 30) => {
+  const { data, error, isLoading, mutate } = useSWR(
+    `analytics-overview-${days}`,
+    async () => {
+      const token = localStorage.getItem('auth_token')
+      if (!token) throw new Error('No auth token')
+
+      const response = await fetch(
+        `http://localhost:3000/admin/analytics/overview?days=${days}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-Domain': 'tech.localhost',
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`Analytics overview failed: ${response.status}`)
+      }
+
+      return await response.json()
+    }
+  )
+
+  return {
+    overview: data,
+    isLoading,
+    error: error?.message || null,
+    refresh: mutate,
+  }
+}
+
+export const useTrafficStats = (days = 30) => {
+  const { data, error, isLoading, mutate } = useSWR(
+    `analytics-traffic-${days}`,
+    async () => {
+      const token = localStorage.getItem('auth_token')
+      if (!token) throw new Error('No auth token')
+
+      const response = await fetch(
+        `http://localhost:3000/admin/analytics/traffic?days=${days}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-Domain': 'tech.localhost',
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`Traffic stats failed: ${response.status}`)
+      }
+
+      return await response.json()
+    }
+  )
+
+  return {
+    traffic: data,
+    isLoading,
+    error: error?.message || null,
+    refresh: mutate,
+  }
+}
+
+export const usePostAnalytics = (days = 30) => {
+  const { data, error, isLoading, mutate } = useSWR(
+    `analytics-posts-${days}`,
+    async () => {
+      const token = localStorage.getItem('auth_token')
+      if (!token) throw new Error('No auth token')
+
+      const response = await fetch(
+        `http://localhost:3000/admin/analytics/posts?days=${days}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-Domain': 'tech.localhost',
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`Post analytics failed: ${response.status}`)
+      }
+
+      return await response.json()
+    }
+  )
+
+  return {
+    postAnalytics: data,
+    isLoading,
+    error: error?.message || null,
+    refresh: mutate,
+  }
+}
+
+export const useSearchAnalytics = (days = 30) => {
+  const { data, error, isLoading, mutate } = useSWR(
+    `analytics-search-${days}`,
+    async () => {
+      const token = localStorage.getItem('auth_token')
+      if (!token) throw new Error('No auth token')
+
+      const response = await fetch(
+        `http://localhost:3000/admin/analytics/search-terms?days=${days}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-Domain': 'tech.localhost',
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`Search analytics failed: ${response.status}`)
+      }
+
+      return await response.json()
+    }
+  )
+
+  return {
+    searchAnalytics: data,
+    isLoading,
+    error: error?.message || null,
+    refresh: mutate,
+  }
+}
+
+export const useReferrerStats = (days = 30) => {
+  const { data, error, isLoading, mutate } = useSWR(
+    `analytics-referrers-${days}`,
+    async () => {
+      const token = localStorage.getItem('auth_token')
+      if (!token) throw new Error('No auth token')
+
+      const response = await fetch(
+        `http://localhost:3000/admin/analytics/referrers?days=${days}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-Domain': 'tech.localhost',
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`Referrer stats failed: ${response.status}`)
+      }
+
+      return await response.json()
+    }
+  )
+
+  return {
+    referrerStats: data,
+    isLoading,
+    error: error?.message || null,
+    refresh: mutate,
+  }
+}

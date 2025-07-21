@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useAdminPosts } from '../../hooks/useAdminPosts'
 import { adminApiService } from '../../services/adminApi'
+import { adminToast, showToast } from '../../utils/toast'
 
 interface Post {
   id: number
@@ -101,13 +102,18 @@ const AdminPosts: React.FC = () => {
     }
 
     setDeletingPost(post.id)
+
+    // Show loading toast
+    const toastId = adminToast.deleting()
+
     try {
       await deletePost(post.id)
-      // Show success message (you could add a toast here)
-      console.log('Post deleted successfully')
+      showToast.dismiss(toastId)
+      adminToast.postDeleted(post.title)
     } catch (error) {
       console.error('Failed to delete post:', error)
-      alert('Failed to delete post. Please try again.')
+      showToast.dismiss(toastId)
+      showToast.error('Failed to delete post. Please try again.')
     } finally {
       setDeletingPost(null)
     }
@@ -117,6 +123,8 @@ const AdminPosts: React.FC = () => {
     post: Post,
     newStatus: 'published' | 'draft' | 'archived'
   ) => {
+    const toastId = showToast.loading(`Changing status to ${newStatus}...`)
+
     try {
       // We'll need to implement updatePost in the hook or use the API directly
       await adminApiService.updatePost(
@@ -125,10 +133,19 @@ const AdminPosts: React.FC = () => {
         post.domain
       )
       refresh() // Refresh the posts list
-      console.log(`Post status changed to ${newStatus}`)
+      showToast.dismiss(toastId)
+
+      if (newStatus === 'published') {
+        adminToast.postPublished(post.title)
+      } else if (newStatus === 'draft') {
+        adminToast.postUnpublished(post.title)
+      } else {
+        showToast.success(`Post "${post.title}" archived successfully! 📦`)
+      }
     } catch (error) {
       console.error('Failed to update post status:', error)
-      alert('Failed to update post status. Please try again.')
+      showToast.dismiss(toastId)
+      showToast.error('Failed to update post status. Please try again.')
     }
   }
 

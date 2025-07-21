@@ -11,6 +11,7 @@ import {
   Globe,
 } from 'lucide-react'
 import { useAdminPosts } from '../../hooks/useAdminPosts'
+import { adminToast, showToast } from '../../utils/toast'
 import type { NewPostForm } from '../../types'
 
 const AdminCreatePostPage: React.FC = () => {
@@ -54,6 +55,8 @@ const AdminCreatePostPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (isFormValid() && !isCreating) {
+      const toastId = adminToast.saving()
+
       try {
         await createPost({
           title: formData.title,
@@ -64,19 +67,26 @@ const AdminCreatePostPage: React.FC = () => {
           domain: formData.domain,
         })
 
-        // Success feedback
-        alert(
-          `Post "${formData.title}" ${
-            formData.status === 'published' ? 'published' : 'saved as draft'
-          } successfully!`
-        )
+        showToast.dismiss(toastId)
 
-        // Navigate back to posts list
-        navigate('/admin/posts')
+        // Success feedback with appropriate message
+        if (formData.status === 'published') {
+          adminToast.postPublished(formData.title)
+        } else {
+          adminToast.postCreated(formData.title)
+        }
+
+        // Navigate back to posts list after a brief delay
+        setTimeout(() => {
+          navigate('/admin/posts')
+        }, 1500)
       } catch (error) {
         console.error('Failed to create post:', error)
-        alert('Failed to create post. Please try again.')
+        showToast.dismiss(toastId)
+        showToast.error('Failed to create post. Please try again.')
       }
+    } else if (!isFormValid()) {
+      showToast.warning('Please fill in all required fields! 📝')
     }
   }
 

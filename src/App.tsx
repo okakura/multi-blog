@@ -1,5 +1,6 @@
 import React from 'react'
 import { Routes, Route, useNavigate, useParams } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import './App.css'
 import { useBlogData } from './hooks/useBlogPosts'
 import { useDomain } from './contexts/DomainContext'
@@ -22,6 +23,7 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminPosts from './pages/admin/AdminPosts'
 import AdminCreatePostPage from './pages/admin/AdminCreatePostPage'
 import AdminEditPost from './pages/admin/AdminEditPost'
+import AdminAnalytics from './pages/admin/AdminAnalytics'
 import AdminTest from './pages/admin/AdminTest'
 import UserProfile from './pages/admin/UserProfile'
 
@@ -154,10 +156,7 @@ const AdminApp = () => {
           <Route path='/posts/:id/edit' element={<AdminEditPost />} />
           <Route path='/test' element={<AdminTest />} />
           <Route path='/profile' element={<UserProfile />} />
-          <Route
-            path='/analytics'
-            element={<div className='p-6'>Analytics coming soon...</div>}
-          />
+          <Route path='/analytics' element={<AdminAnalytics />} />
           <Route
             path='/domains'
             element={
@@ -188,6 +187,63 @@ const BlogPlatform = () => {
         <Route path='/blog/:domain/post/:slug' element={<BlogPostPage />} />
         <Route path='/admin/*' element={<AdminApp />} />
       </Routes>
+
+      {/* Toast notifications */}
+      <Toaster
+        position='top-right'
+        reverseOrder={false}
+        gutter={8}
+        containerClassName=''
+        containerStyle={{}}
+        toastOptions={{
+          // Define default options
+          className: '',
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            fontSize: '14px',
+            fontWeight: '500',
+            boxShadow:
+              '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          },
+          // Default options for specific types
+          success: {
+            style: {
+              background: '#10b981',
+              color: '#ffffff',
+            },
+            iconTheme: {
+              primary: '#ffffff',
+              secondary: '#10b981',
+            },
+            duration: 3000,
+          },
+          error: {
+            style: {
+              background: '#ef4444',
+              color: '#ffffff',
+            },
+            iconTheme: {
+              primary: '#ffffff',
+              secondary: '#ef4444',
+            },
+            duration: 5000,
+          },
+          loading: {
+            style: {
+              background: '#6366f1',
+              color: '#ffffff',
+            },
+            iconTheme: {
+              primary: '#ffffff',
+              secondary: '#6366f1',
+            },
+          },
+        }}
+      />
     </AuthProvider>
   )
 }

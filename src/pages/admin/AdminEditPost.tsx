@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Save, ArrowLeft, Loader2 } from 'lucide-react'
 import { useAdminPost } from '../../hooks/useAdminPosts'
 import { adminApiService } from '../../services/adminApi'
+import { adminToast, showToast } from '../../utils/toast'
 
 const AdminEditPost: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -35,11 +36,13 @@ const AdminEditPost: React.FC = () => {
     e.preventDefault()
 
     if (!title.trim() || !content.trim()) {
-      alert('Title and content are required')
+      showToast.warning('Title and content are required! 📝')
       return
     }
 
     setIsUpdating(true)
+    const toastId = adminToast.saving()
+
     try {
       await adminApiService.updatePost(postId, {
         title: title.trim(),
@@ -48,11 +51,17 @@ const AdminEditPost: React.FC = () => {
         status,
       })
 
-      // Navigate back to posts list
-      navigate('/admin/posts')
+      showToast.dismiss(toastId)
+      adminToast.postUpdated(title.trim())
+
+      // Navigate back to posts list after a brief delay
+      setTimeout(() => {
+        navigate('/admin/posts')
+      }, 1000)
     } catch (error) {
       console.error('Failed to update post:', error)
-      alert('Failed to update post. Please try again.')
+      showToast.dismiss(toastId)
+      showToast.error('Failed to update post. Please try again.')
     } finally {
       setIsUpdating(false)
     }

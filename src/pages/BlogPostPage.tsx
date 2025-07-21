@@ -4,6 +4,7 @@ import { Calendar, User, Tag, ArrowLeft, Clock, Share2 } from 'lucide-react'
 import { useBlogPost } from '../hooks/useBlogPosts'
 import { useDomain } from '../contexts/DomainContext'
 import { LoadingSpinner, ErrorMessage } from '../components'
+import { blogToast } from '../utils/toast'
 
 const BlogPostPage: React.FC = () => {
   const navigate = useNavigate()
@@ -16,6 +17,13 @@ const BlogPostPage: React.FC = () => {
   }, [domain, updateFromRoute])
 
   const { post, isLoading, error } = useBlogPost(currentDomain, slug || '')
+
+  // Show error toast when post fails to load
+  React.useEffect(() => {
+    if (error) {
+      blogToast.loadError()
+    }
+  }, [error])
 
   if (isLoading) {
     return (
@@ -95,17 +103,38 @@ const BlogPostPage: React.FC = () => {
     return Math.ceil(wordCount / wordsPerMinute)
   }
 
-  const sharePost = () => {
+  const sharePost = async () => {
     if (navigator.share) {
-      navigator.share({
-        title: post.title,
-        text: `Check out this post: ${post.title}`,
-        url: window.location.href,
-      })
+      try {
+        await navigator.share({
+          title: post.title,
+          text: `Check out this post: ${post.title}`,
+          url: window.location.href,
+        })
+        blogToast.linkCopied()
+      } catch (error) {
+        // User cancelled sharing or error occurred
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Error sharing:', error)
+          blogToast.linkCopied()
+        }
+      }
     } else {
       // Fallback to copying URL to clipboard
-      navigator.clipboard.writeText(window.location.href)
-      alert('Post URL copied to clipboard!')
+      try {
+        await navigator.clipboard.writeText(window.location.href)
+        blogToast.linkCopied()
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error)
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea')
+        textArea.value = window.location.href
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+        blogToast.linkCopied()
+      }
     }
   }
 
