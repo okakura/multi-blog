@@ -39,6 +39,63 @@ export interface AnalyticsSummary {
   posts_this_month: number
 }
 
+export interface TopPost {
+  id: number
+  title: string
+  slug: string
+  views: number
+  unique_views: number
+}
+
+export interface TopCategory {
+  category: string
+  views: number
+  posts_count: number
+}
+
+export interface PeriodStats {
+  page_views: number
+  unique_visitors: number
+  post_views: number
+  searches: number
+  avg_session_duration: number
+}
+
+export interface EnhancedAnalyticsSummary extends AnalyticsSummary {
+  comprehensive?: any
+  top_posts?: TopPost[]
+  top_categories?: TopCategory[]
+  current_period?: PeriodStats
+  previous_period?: PeriodStats
+}
+
+export interface Domain {
+  id: number
+  hostname: string
+  name: string
+  theme_config: any
+  categories: any
+  created_at: string
+  updated_at: string
+  posts_count?: number
+  active_users?: number
+  monthly_views?: number
+}
+
+export interface CreateDomainRequest {
+  hostname: string
+  name: string
+  theme_config?: any
+  categories?: string[]
+}
+
+export interface UpdateDomainRequest {
+  hostname?: string
+  name?: string
+  theme_config?: any
+  categories?: string[]
+}
+
 class AdminApiService {
   private baseUrl = 'http://localhost:3000/admin'
 
@@ -255,6 +312,104 @@ class AdminApiService {
       return await response.json()
     } catch (error) {
       console.error('Error updating domain settings:', error)
+      throw error
+    }
+  }
+
+  // Domain Management Methods
+  async getDomains(): Promise<Domain[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/domains`, {
+        headers: this.getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch domains: ${response.statusText}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error fetching domains:', error)
+      throw error
+    }
+  }
+
+  async getDomain(id: number): Promise<Domain> {
+    try {
+      const response = await fetch(`${this.baseUrl}/domains/${id}`, {
+        headers: this.getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch domain: ${response.statusText}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error fetching domain:', error)
+      throw error
+    }
+  }
+
+  async createDomain(data: CreateDomainRequest): Promise<Domain> {
+    try {
+      const response = await fetch(`${this.baseUrl}/domains`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        if (response.status === 409) {
+          throw new Error('Domain hostname already exists')
+        }
+        throw new Error(`Failed to create domain: ${response.statusText}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error creating domain:', error)
+      throw error
+    }
+  }
+
+  async updateDomain(id: number, data: UpdateDomainRequest): Promise<Domain> {
+    try {
+      const response = await fetch(`${this.baseUrl}/domains/${id}`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        if (response.status === 409) {
+          throw new Error('Domain hostname already exists')
+        }
+        throw new Error(`Failed to update domain: ${response.statusText}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error updating domain:', error)
+      throw error
+    }
+  }
+
+  async deleteDomain(id: number): Promise<void> {
+    try {
+      const response = await fetch(`${this.baseUrl}/domains/${id}`, {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        if (response.status === 409) {
+          throw new Error('Cannot delete domain with existing posts')
+        }
+        throw new Error(`Failed to delete domain: ${response.statusText}`)
+      }
+    } catch (error) {
+      console.error('Error deleting domain:', error)
       throw error
     }
   }

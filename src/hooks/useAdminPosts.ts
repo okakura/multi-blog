@@ -6,6 +6,9 @@ import {
   adminApiService,
   type AdminPost,
   type CreatePostRequest,
+  type Domain,
+  type CreateDomainRequest,
+  type UpdateDomainRequest,
 } from '../services/adminApi'
 
 // Cache key creator for admin posts
@@ -204,7 +207,7 @@ export const useAdminPost = (domain: string, id: number) => {
   }
 }
 
-// Hook for analytics
+// Hook for analytics - enhanced with comprehensive data
 export const useAdminAnalytics = (domain: string = 'tech.blog') => {
   const {
     data: analytics,
@@ -212,8 +215,45 @@ export const useAdminAnalytics = (domain: string = 'tech.blog') => {
     isLoading,
     mutate,
   } = useSWR(
-    `admin-analytics-${domain}`,
-    () => adminApiService.getAnalytics(domain),
+    `admin-analytics-comprehensive-${domain}`,
+    async () => {
+      // First get the basic analytics (keeping compatibility)
+      const basicAnalytics = await adminApiService.getAnalytics(domain)
+
+      // Then try to get the comprehensive analytics data
+      try {
+        const token = localStorage.getItem('auth_token')
+        if (!token) return basicAnalytics
+
+        const response = await fetch(
+          `http://localhost:3000/admin/analytics/overview?days=30`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'X-Domain': 'tech.localhost',
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+
+        if (response.ok) {
+          const comprehensiveData = await response.json()
+          // Merge the data for enhanced dashboard experience
+          return {
+            ...basicAnalytics,
+            comprehensive: comprehensiveData,
+            top_posts: comprehensiveData.top_posts || [],
+            top_categories: comprehensiveData.top_categories || [],
+            current_period: comprehensiveData.current_period || null,
+            previous_period: comprehensiveData.previous_period || null,
+          }
+        }
+      } catch (err) {
+        console.warn('Comprehensive analytics failed, using basic data:', err)
+      }
+
+      return basicAnalytics
+    },
     {
       revalidateOnFocus: false,
       refreshInterval: 300000, // Refresh every 5 minutes
@@ -439,6 +479,127 @@ export const useReferrerStats = (days = 30) => {
 
   return {
     referrerStats: data,
+    isLoading,
+    error: error?.message || null,
+    refresh: mutate,
+  }
+}
+
+// Domain Management Hooks
+export const useAdminDomains = () => {
+  const [isCreating, setIsCreating] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const {
+    data: domains,
+    error,
+    isLoading,
+    mutate,
+  } = useSWR<Domain[]>('admin-domains', () => adminApiService.getDomains(), {
+    revalidateOnFocus: false,
+    dedupingInterval: 30000, // Cache for 30 seconds
+  })
+
+  const createDomain = async (domainData: CreateDomainRequest) => {
+    setIsCreating(true)
+    try {
+      const newDomain = await adminApiService.createDomain(domainData)
+
+      // Optimistically update the cache
+      if (domains) {
+        mutate([newDomain, ...domains], false)
+      }
+
+      // Revalidate to ensure consistency
+      mutate()
+
+      return newDomain
+    } catch (error) {
+      console.error('Failed to create domain:', error)
+      throw error
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const updateDomain = async (id: number, domainData: UpdateDomainRequest) => {
+    setIsUpdating(true)
+    try {
+      const updatedDomain = await adminApiService.updateDomain(id, domainData)
+
+      // Optimistically update the cache
+      if (domains) {
+        const updatedDomains = domains.map((domain) =>
+          domain.id === id ? updatedDomain : domain
+        )
+        mutate(updatedDomains, false)
+      }
+
+      // Revalidate to ensure consistency
+      mutate()
+
+      return updatedDomain
+    } catch (error) {
+      console.error('Failed to update domain:', error)
+      throw error
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const deleteDomain = async (id: number) => {
+    setIsDeleting(true)
+    try {
+      await adminApiService.deleteDomain(id)
+
+      // Optimistically update the cache
+      if (domains) {
+        const filteredDomains = domains.filter((domain) => domain.id !== id)
+        mutate(filteredDomains, false)
+      }
+
+      // Revalidate to ensure consistency
+      mutate()
+    } catch (error) {
+      console.error('Failed to delete domain:', error)
+      throw error
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return {
+    domains: domains || [],
+    isLoading,
+    isCreating,
+    isUpdating,
+    isDeleting,
+    error: error?.message || null,
+    createDomain,
+    updateDomain,
+    deleteDomain,
+    refresh: mutate,
+  }
+}
+
+export const useAdminDomain = (id: number) => {
+  const {
+    data: domain,
+    error,
+    isLoading,
+    mutate,
+  } = useSWR<Domain>(
+    id ? `admin-domain-${id}` : null,
+    () => adminApiService.getDomain(id),
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60000,
+    }
+  )
+
+  return {
+    domain,
     isLoading,
     error: error?.message || null,
     refresh: mutate,

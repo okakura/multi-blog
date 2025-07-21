@@ -32,6 +32,11 @@ impl super::HandlerModule for AdminModule {
                 "/domain/settings",
                 get(get_domain_settings).put(update_domain_settings),
             )
+            .route("/domains", get(list_domains).post(create_domain))
+            .route(
+                "/domains/{id}",
+                get(get_domain).put(update_domain).delete(delete_domain),
+            )
     }
 
     fn mount_path() -> &'static str {
@@ -377,6 +382,328 @@ async fn update_domain_settings(
 
     // Return updated domain (in real implementation, you'd fetch from DB)
     Ok(Json(domain))
+}
+
+// Domain Management Structs
+#[derive(Serialize, Deserialize)]
+struct CreateDomainRequest {
+    hostname: String,
+    name: String,
+    theme_config: Option<serde_json::Value>,
+    categories: Option<Vec<String>>,
+}
+
+#[derive(Serialize, sqlx::FromRow)]
+struct DomainResponse {
+    id: i32,
+    hostname: String,
+    name: String,
+    theme_config: serde_json::Value,
+    categories: serde_json::Value,
+    created_at: Option<chrono::DateTime<Utc>>,
+    updated_at: Option<chrono::DateTime<Utc>>,
+    posts_count: Option<i64>,
+    active_users: Option<i64>,
+    monthly_views: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct UpdateDomainRequest {
+    hostname: Option<String>,
+    name: Option<String>,
+    theme_config: Option<serde_json::Value>,
+    categories: Option<Vec<String>>,
+}
+
+// Domain Management Handlers
+async fn list_domains(
+    Extension(user): Extension<UserContext>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<DomainResponse>>, StatusCode> {
+    // Only super admins can list all domains
+    if user.role != "super_admin" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    let domains = sqlx::query_as!(
+        DomainResponse,
+        r#"
+        SELECT 
+            d.id, 
+            d.hostname, 
+            d.name, 
+            d.theme_config, 
+            d.categories,
+            d.created_at, 
+            d.updated_at,
+            COUNT(p.id) as posts_count,
+            COUNT(DISTINCT ae.ip_address) FILTER (WHERE ae.created_at >= NOW() - INTERVAL '30 days') as active_users,
+            COUNT(ae.id) FILTER (WHERE ae.created_at >= NOW() - INTERVAL '30 days' AND ae.event_type IN ('page_view', 'post_view')) as monthly_views
+        FROM domains d
+        LEFT JOIN posts p ON d.id = p.domain_id
+        LEFT JOIN analytics_events ae ON d.id = ae.domain_id
+        GROUP BY d.id, d.hostname, d.name, d.theme_config, d.categories, d.created_at, d.updated_at
+        ORDER BY d.created_at DESC
+        "#
+    )
+    .fetch_all(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(domains))
+}
+
+async fn get_domain(
+    Extension(user): Extension<UserContext>,
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<Json<DomainResponse>, StatusCode> {
+    // Only super admins can view any domain, or users with permissions for this specific domain
+    if user.role != "super_admin" {
+        let has_permission = user.domain_permissions.iter().any(|p| p.domain_id == id);
+        if !has_permission {
+            return Err(StatusCode::FORBIDDEN);
+        }
+    }
+
+    let domain = sqlx::query_as!(
+        DomainResponse,
+        r#"
+        SELECT 
+            d.id, 
+            d.hostname, 
+            d.name, 
+            d.theme_config, 
+            d.categories,
+            d.created_at, 
+            d.updated_at,
+            COUNT(p.id) as posts_count,
+            COUNT(DISTINCT ae.ip_address) FILTER (WHERE ae.created_at >= NOW() - INTERVAL '30 days') as active_users,
+            COUNT(ae.id) FILTER (WHERE ae.created_at >= NOW() - INTERVAL '30 days' AND ae.event_type IN ('page_view', 'post_view')) as monthly_views
+        FROM domains d
+        LEFT JOIN posts p ON d.id = p.domain_id
+        LEFT JOIN analytics_events ae ON d.id = ae.domain_id
+        WHERE d.id = $1
+        GROUP BY d.id, d.hostname, d.name, d.theme_config, d.categories, d.created_at, d.updated_at
+        "#,
+        id
+    )
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .ok_or(StatusCode::NOT_FOUND)?;
+
+    Ok(Json(domain))
+}
+
+async fn create_domain(
+    Extension(user): Extension<UserContext>,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CreateDomainRequest>,
+) -> Result<Json<DomainResponse>, StatusCode> {
+    // Only super admins can create domains
+    if user.role != "super_admin" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    // Validate hostname uniqueness
+    let existing = sqlx::query!(
+        "SELECT id FROM domains WHERE hostname = $1",
+        payload.hostname
+    )
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    if existing.is_some() {
+        return Err(StatusCode::CONFLICT);
+    }
+
+    let theme_config = payload
+        .theme_config
+        .unwrap_or_else(|| serde_json::json!({}));
+    let categories = payload.categories.unwrap_or_else(|| vec![]);
+    let categories_json =
+        serde_json::to_value(categories).unwrap_or_else(|_| serde_json::json!([]));
+
+    let domain = sqlx::query_as!(
+        DomainResponse,
+        r#"
+        INSERT INTO domains (hostname, name, theme_config, categories)
+        VALUES ($1, $2, $3, $4)
+        RETURNING 
+            id, 
+            hostname, 
+            name, 
+            theme_config, 
+            categories,
+            created_at, 
+            updated_at,
+            0::bigint as posts_count,
+            0::bigint as active_users,
+            0::bigint as monthly_views
+        "#,
+        payload.hostname,
+        payload.name,
+        theme_config,
+        categories_json
+    )
+    .fetch_one(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(domain))
+}
+
+async fn update_domain(
+    Extension(user): Extension<UserContext>,
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+    Json(payload): Json<UpdateDomainRequest>,
+) -> Result<Json<DomainResponse>, StatusCode> {
+    // Only super admins can update domains
+    if user.role != "super_admin" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    // Check if domain exists
+    let existing = sqlx::query!("SELECT hostname FROM domains WHERE id = $1", id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    // If hostname is being updated, check for uniqueness
+    if let Some(ref new_hostname) = payload.hostname {
+        if new_hostname != &existing.hostname {
+            let hostname_taken = sqlx::query!(
+                "SELECT id FROM domains WHERE hostname = $1 AND id != $2",
+                new_hostname,
+                id
+            )
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+            if hostname_taken.is_some() {
+                return Err(StatusCode::CONFLICT);
+            }
+        }
+    }
+
+    // Build update query dynamically
+    let mut query = "UPDATE domains SET updated_at = NOW()".to_string();
+    let mut params = vec![];
+    let mut param_count = 0;
+
+    if let Some(hostname) = payload.hostname {
+        param_count += 1;
+        query.push_str(&format!(", hostname = ${}", param_count));
+        params.push(hostname);
+    }
+
+    if let Some(name) = payload.name {
+        param_count += 1;
+        query.push_str(&format!(", name = ${}", param_count));
+        params.push(name);
+    }
+
+    if let Some(theme_config) = payload.theme_config {
+        param_count += 1;
+        query.push_str(&format!(", theme_config = ${}", param_count));
+        params.push(serde_json::to_string(&theme_config).unwrap());
+    }
+
+    if let Some(categories) = payload.categories {
+        param_count += 1;
+        let categories_json =
+            serde_json::to_value(categories).unwrap_or_else(|_| serde_json::json!([]));
+        query.push_str(&format!(", categories = ${}", param_count));
+        params.push(serde_json::to_string(&categories_json).unwrap());
+    }
+
+    param_count += 1;
+    query.push_str(&format!(" WHERE id = ${}", param_count));
+
+    // Execute the update
+    let mut query_builder = sqlx::query(&query);
+    for param in params {
+        query_builder = query_builder.bind(param);
+    }
+    query_builder = query_builder.bind(id);
+
+    query_builder
+        .execute(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Fetch and return the updated domain
+    let domain = sqlx::query_as!(
+        DomainResponse,
+        r#"
+        SELECT 
+            d.id, 
+            d.hostname, 
+            d.name, 
+            d.theme_config, 
+            d.categories,
+            d.created_at, 
+            d.updated_at,
+            COUNT(p.id) as posts_count,
+            COUNT(DISTINCT ae.ip_address) FILTER (WHERE ae.created_at >= NOW() - INTERVAL '30 days') as active_users,
+            COUNT(ae.id) FILTER (WHERE ae.created_at >= NOW() - INTERVAL '30 days' AND ae.event_type IN ('page_view', 'post_view')) as monthly_views
+        FROM domains d
+        LEFT JOIN posts p ON d.id = p.domain_id
+        LEFT JOIN analytics_events ae ON d.id = ae.domain_id
+        WHERE d.id = $1
+        GROUP BY d.id, d.hostname, d.name, d.theme_config, d.categories, d.created_at, d.updated_at
+        "#,
+        id
+    )
+    .fetch_one(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(domain))
+}
+
+async fn delete_domain(
+    Extension(user): Extension<UserContext>,
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<StatusCode, StatusCode> {
+    // Only super admins can delete domains
+    if user.role != "super_admin" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    // Check if domain has posts
+    let posts_count = sqlx::query!(
+        "SELECT COUNT(*) as count FROM posts WHERE domain_id = $1",
+        id
+    )
+    .fetch_one(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .count
+    .unwrap_or(0);
+
+    if posts_count > 0 {
+        // Return 409 Conflict if domain has posts
+        return Err(StatusCode::CONFLICT);
+    }
+
+    let rows_affected = sqlx::query!("DELETE FROM domains WHERE id = $1", id)
+        .execute(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .rows_affected();
+
+    if rows_affected > 0 {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(StatusCode::NOT_FOUND)
+    }
 }
 
 // Admin Analytics Structs

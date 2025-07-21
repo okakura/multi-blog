@@ -14,6 +14,7 @@ import {
   LoadingSpinner,
   ErrorMessage,
 } from './components'
+import AdminDomains from './pages/admin/AdminDomains'
 import DomainDebugInfo from './components/DomainDebugInfo'
 
 import Portfolio from './pages/Portfolio'
@@ -157,12 +158,7 @@ const AdminApp = () => {
           <Route path='/test' element={<AdminTest />} />
           <Route path='/profile' element={<UserProfile />} />
           <Route path='/analytics' element={<AdminAnalytics />} />
-          <Route
-            path='/domains'
-            element={
-              <div className='p-6'>Domain management coming soon...</div>
-            }
-          />
+          <Route path='/domains' element={<AdminDomains />} />
           <Route
             path='/users'
             element={<div className='p-6'>User management coming soon...</div>}
