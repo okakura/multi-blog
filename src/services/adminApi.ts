@@ -42,21 +42,22 @@ export interface AnalyticsSummary {
 class AdminApiService {
   private baseUrl = 'http://localhost:3000/admin'
 
-  // Helper to get the appropriate host header based on domain
-  private getHostHeader(domain?: string): string {
+  // Helper to get auth headers
+  private getAuthHeaders(domain?: string): HeadersInit {
+    const token = localStorage.getItem('auth_token')
+
+    // Map frontend domain names to backend domain names
     const domainMap: Record<string, string> = {
       'tech.blog': 'tech.localhost',
       'lifestyle.blog': 'lifestyle.localhost',
       'business.blog': 'business.localhost',
     }
-    return domainMap[domain || 'tech.blog'] || 'tech.localhost'
-  }
 
-  // Helper to get auth headers
-  private getAuthHeaders(domain?: string): HeadersInit {
-    const token = localStorage.getItem('auth_token')
+    const backendDomain = domainMap[domain || 'tech.blog'] || 'tech.localhost'
+
     const headers: HeadersInit = {
-      Host: this.getHostHeader(domain),
+      // Note: Browser cannot set Host header, so we'll use a custom header instead
+      'X-Domain': backendDomain,
       'Content-Type': 'application/json',
     }
 
@@ -92,7 +93,24 @@ class AdminApiService {
         throw new Error(`Failed to fetch admin posts: ${response.statusText}`)
       }
 
-      return await response.json()
+      const data = await response.json()
+      console.log('Admin API raw response:', data) // Debug log
+      console.log('Response is array?', Array.isArray(data)) // Debug log
+
+      // Handle both array response and paginated response
+      if (Array.isArray(data)) {
+        const result = {
+          posts: data,
+          total: data.length,
+          page,
+          per_page: limit,
+        }
+        console.log('Admin API transformed response:', result) // Debug log
+        return result
+      }
+
+      console.log('Admin API returning data as-is:', data) // Debug log
+      return data
     } catch (error) {
       console.error('Error fetching admin posts:', error)
       throw error

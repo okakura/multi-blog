@@ -70,9 +70,15 @@ pub async fn domain_middleware(
     // Extract hostname from headers
     let hostname = request
         .headers()
-        .get("host")
+        .get("x-domain")
         .and_then(|v| v.to_str().ok())
-        .and_then(|h| h.split(':').next()) // Remove port if present
+        .or_else(|| {
+            request
+                .headers()
+                .get("host")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|h| h.split(':').next()) // Remove port if present
+        })
         .unwrap_or("localhost")
         .to_string();
 

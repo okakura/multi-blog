@@ -261,7 +261,10 @@ async fn get_post(
     State(state): State<Arc<AppState>>,
     Path(slug): Path<String>,
 ) -> Result<Json<PostResponse>, StatusCode> {
-    log_page_view(&state, &domain, &analytics, &format!("/posts/{}", slug)).await?;
+    println!(
+        "🔍 Looking for post with slug: {} in domain: {}",
+        slug, domain.name
+    );
 
     let post = sqlx::query_as::<_, PostResponse>(
         r#"
@@ -274,25 +277,26 @@ async fn get_post(
     .bind(&slug)
     .fetch_optional(&state.db)
     .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-    .ok_or(StatusCode::NOT_FOUND)?;
+    .map_err(|e| {
+        println!("❌ Database error: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
-    // Log specific post view for analytics
-    sqlx::query(
-        r#"
-        INSERT INTO analytics_events (domain_id, event_type, post_id, path, user_agent, ip_address, referrer)
-        VALUES ($1, 'post_view', $2, $3, $4, $5, $6)
-        "#
-    )
-    .bind(domain.id)
-    .bind(post.id)
-    .bind(format!("/posts/{}", slug))
-    .bind(&analytics.user_agent)
-    .bind(&analytics.ip_address)
-    .bind(&analytics.referrer)
-    .execute(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let post = match post {
+        Some(p) => {
+            println!("✅ Found post: {}", p.title);
+            p
+        }
+        None => {
+            println!("❌ Post not found");
+            return Err(StatusCode::NOT_FOUND);
+        }
+    };
+
+    // Try simplified analytics logging
+    if let Err(e) = log_page_view(&state, &domain, &analytics, &format!("/posts/{}", slug)).await {
+        println!("⚠️ Analytics logging failed, but continuing: {:?}", e);
+    }
 
     Ok(Json(post))
 }

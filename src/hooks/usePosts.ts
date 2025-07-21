@@ -1,6 +1,32 @@
 import { useState, useEffect, useMemo } from 'react'
 import type { Post, PostsData, DomainType, NewPostForm } from '../types'
-import { samplePosts } from '../data/samplePosts'
+
+// Simple mock data for development
+const mockPosts: Post[] = [
+  {
+    id: 1,
+    title: 'Welcome to Tech Blog',
+    author: 'Demo Author',
+    category: 'Technology',
+    date: '2025-01-15',
+    excerpt:
+      'Welcome to our technology blog. Here you will find the latest insights...',
+    content: 'This is a sample post content for development purposes.',
+    readTime: '3 min read',
+    slug: 'welcome-to-tech-blog',
+  },
+  {
+    id: 2,
+    title: 'Getting Started with React',
+    author: 'Demo Author',
+    category: 'Web Development',
+    date: '2025-01-10',
+    excerpt: 'Learn the fundamentals of React development...',
+    content: 'This is another sample post for development.',
+    readTime: '5 min read',
+    slug: 'getting-started-with-react',
+  },
+]
 
 export const usePosts = (currentDomain: DomainType) => {
   const [posts, setPosts] = useState<PostsData>({} as PostsData)
@@ -9,10 +35,10 @@ export const usePosts = (currentDomain: DomainType) => {
   // Initialize posts for all domains
   useEffect(() => {
     setPosts({
-      'tech.blog': samplePosts['tech.blog'] || [],
-      'lifestyle.blog': samplePosts['lifestyle.blog'] || [],
-      'business.blog': samplePosts['business.blog'] || [],
-      default: [],
+      'tech.blog': mockPosts,
+      'lifestyle.blog': mockPosts,
+      'business.blog': mockPosts,
+      default: mockPosts,
     })
   }, [])
 
@@ -37,6 +63,10 @@ export const usePosts = (currentDomain: DomainType) => {
       id: Date.now(),
       date: new Date().toISOString().split('T')[0],
       readTime: `${Math.ceil(newPostData.content.length / 200)} min read`,
+      slug: newPostData.title
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, ''),
     }
 
     setPosts((prev) => ({

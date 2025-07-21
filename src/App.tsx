@@ -1,7 +1,7 @@
 import React from 'react'
 import { Routes, Route, useNavigate, useParams } from 'react-router-dom'
 import './App.css'
-import { useApiPosts } from './hooks/useSwrApiPosts'
+import { useBlogData } from './hooks/useBlogPosts'
 import { useDomain } from './contexts/DomainContext'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -16,9 +16,13 @@ import {
 import DomainDebugInfo from './components/DomainDebugInfo'
 
 import Portfolio from './pages/Portfolio'
+import BlogPostPage from './pages/BlogPostPage'
 import AdminLayout from './components/admin/AdminLayout'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminPosts from './pages/admin/AdminPosts'
+import AdminCreatePostPage from './pages/admin/AdminCreatePostPage'
+import AdminEditPost from './pages/admin/AdminEditPost'
+import AdminTest from './pages/admin/AdminTest'
 import UserProfile from './pages/admin/UserProfile'
 
 // BlogDomain: main blog grid for a domain
@@ -27,8 +31,13 @@ const BlogDomain = () => {
   const { domain } = useParams()
   const { currentDomain, config, setDomain, updateFromRoute } = useDomain()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false)
-  const { filteredPosts, searchTerm, setSearchTerm, loading, error } =
-    useApiPosts(currentDomain)
+  const {
+    filteredPosts,
+    searchTerm,
+    setSearchTerm,
+    isLoading: loading,
+    error,
+  } = useBlogData(currentDomain)
 
   // Update domain context with route parameter
   React.useEffect(() => {
@@ -95,7 +104,7 @@ const BlogDomain = () => {
                     post={post}
                     config={config}
                     onClick={() =>
-                      navigate(`/blog/${currentDomain}/post/${post.id}`)
+                      navigate(`/blog/${currentDomain}/post/${post.slug}`)
                     }
                   />
                 </div>
@@ -133,65 +142,6 @@ const BlogDomain = () => {
   )
 }
 
-// // BlogDomainPost: post modal for a domain
-// const BlogDomainPost = () => {
-//   const navigate = useNavigate()
-//   const { id } = useParams()
-//   const { currentDomain, config } = useDomain()
-//   const { currentPosts } = useApiPosts(currentDomain)
-//   const post = currentPosts.find((p) => String(p.id) === id)
-//   return (
-//     <PostModal
-//       post={post || null}
-//       config={config}
-//       onClose={() => navigate(-1)}
-//     />
-//   )
-// }
-
-// // BlogDomainWrite: write post modal for a domain
-// const BlogDomainWrite = () => {
-//   const navigate = useNavigate()
-//   const { currentDomain, config } = useDomain()
-//   const [newPost, setNewPost] = React.useState<NewPostForm>({
-//     title: '',
-//     author: '',
-//     category: '',
-//     excerpt: '',
-//     content: '',
-//   })
-//   const { addPost } = useApiPosts(currentDomain)
-//   const handleSubmitPost = () => {
-//     if (
-//       !newPost.title ||
-//       !newPost.author ||
-//       !newPost.category ||
-//       !newPost.excerpt ||
-//       !newPost.content
-//     )
-//       return
-//     addPost(newPost)
-//     setNewPost({
-//       title: '',
-//       author: '',
-//       category: '',
-//       excerpt: '',
-//       content: '',
-//     })
-//     navigate(`/blog/${currentDomain}`)
-//   }
-//   return (
-//     <WritePostModal
-//       isOpen={true}
-//       onClose={() => navigate(-1)}
-//       config={config}
-//       newPost={newPost}
-//       onPostChange={setNewPost}
-//       onSubmit={handleSubmitPost}
-//     />
-//   )
-// }
-
 // Admin wrapper component
 const AdminApp = () => {
   return (
@@ -200,6 +150,9 @@ const AdminApp = () => {
         <Routes>
           <Route path='/' element={<AdminDashboard />} />
           <Route path='/posts' element={<AdminPosts />} />
+          <Route path='/posts/new' element={<AdminCreatePostPage />} />
+          <Route path='/posts/:id/edit' element={<AdminEditPost />} />
+          <Route path='/test' element={<AdminTest />} />
           <Route path='/profile' element={<UserProfile />} />
           <Route
             path='/analytics'
@@ -232,8 +185,7 @@ const BlogPlatform = () => {
       <Routes>
         <Route path='/' element={<Portfolio />} />
         <Route path='/blog/:domain' element={<BlogDomain />} />
-        {/* <Route path='/blog/:domain/post/:id' element={<BlogDomainPost />} />
-        <Route path='/blog/:domain/write' element={<BlogDomainWrite />} /> */}
+        <Route path='/blog/:domain/post/:slug' element={<BlogPostPage />} />
         <Route path='/admin/*' element={<AdminApp />} />
       </Routes>
     </AuthProvider>

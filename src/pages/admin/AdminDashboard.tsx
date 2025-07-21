@@ -9,18 +9,18 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from 'lucide-react'
-import { useAdminAnalytics, useAdminPosts } from '../../hooks/useAdminApi'
+import { useAdminPosts, useAdminAnalytics } from '../../hooks/useAdminPosts'
 
 const AdminDashboard: React.FC = () => {
   // Fetch real analytics data
   const {
     analytics,
-    loading: analyticsLoading,
+    isLoading: analyticsLoading,
     error: analyticsError,
   } = useAdminAnalytics()
 
   // Fetch recent posts
-  const { posts: recentPosts, loading: postsLoading } = useAdminPosts(1, 5)
+  const { posts: recentPosts, isLoading: postsLoading } = useAdminPosts()
 
   // Create stats from real data
   const stats = [

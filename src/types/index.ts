@@ -7,6 +7,7 @@ export interface Post {
   excerpt: string
   content: string
   readTime: string
+  slug: string
 }
 
 export interface DomainTheme {
