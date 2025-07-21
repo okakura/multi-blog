@@ -5,6 +5,7 @@ import './App.css'
 import { useBlogData } from './hooks/useBlogPosts'
 import { useDomain } from './contexts/DomainContext'
 import { AuthProvider } from './contexts/AuthContext'
+import { PreferencesWrapper } from './components/PreferencesWrapper'
 import ProtectedRoute from './components/ProtectedRoute'
 import {
   Header,
@@ -15,6 +16,7 @@ import {
   ErrorMessage,
 } from './components'
 import AdminDomains from './pages/admin/AdminDomains'
+import AdminSettings from './pages/admin/AdminSettings'
 import DomainDebugInfo from './components/DomainDebugInfo'
 
 import Portfolio from './pages/Portfolio'
@@ -25,7 +27,6 @@ import AdminPosts from './pages/admin/AdminPosts'
 import AdminCreatePostPage from './pages/admin/AdminCreatePostPage'
 import AdminEditPost from './pages/admin/AdminEditPost'
 import AdminAnalytics from './pages/admin/AdminAnalytics'
-import AdminTest from './pages/admin/AdminTest'
 import UserProfile from './pages/admin/UserProfile'
 
 // BlogDomain: main blog grid for a domain
@@ -149,26 +150,26 @@ const BlogDomain = () => {
 const AdminApp = () => {
   return (
     <ProtectedRoute requiredRole='admin'>
-      <AdminLayout>
-        <Routes>
-          <Route path='/' element={<AdminDashboard />} />
-          <Route path='/posts' element={<AdminPosts />} />
-          <Route path='/posts/new' element={<AdminCreatePostPage />} />
-          <Route path='/posts/:id/edit' element={<AdminEditPost />} />
-          <Route path='/test' element={<AdminTest />} />
-          <Route path='/profile' element={<UserProfile />} />
-          <Route path='/analytics' element={<AdminAnalytics />} />
-          <Route path='/domains' element={<AdminDomains />} />
-          <Route
-            path='/users'
-            element={<div className='p-6'>User management coming soon...</div>}
-          />
-          <Route
-            path='/settings'
-            element={<div className='p-6'>Settings coming soon...</div>}
-          />
-        </Routes>
-      </AdminLayout>
+      <PreferencesWrapper>
+        <AdminLayout>
+          <Routes>
+            <Route path='/' element={<AdminDashboard />} />
+            <Route path='/posts' element={<AdminPosts />} />
+            <Route path='/posts/new' element={<AdminCreatePostPage />} />
+            <Route path='/posts/:id/edit' element={<AdminEditPost />} />
+            <Route path='/profile' element={<UserProfile />} />
+            <Route path='/analytics' element={<AdminAnalytics />} />
+            <Route path='/domains' element={<AdminDomains />} />
+            <Route
+              path='/users'
+              element={
+                <div className='p-6'>User management coming soon...</div>
+              }
+            />
+            <Route path='/settings' element={<AdminSettings />} />
+          </Routes>
+        </AdminLayout>
+      </PreferencesWrapper>
     </ProtectedRoute>
   )
 }

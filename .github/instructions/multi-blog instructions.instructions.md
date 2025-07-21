@@ -4,6 +4,8 @@ applyTo: '**'
 
 Provide project context and coding guidelines that AI should follow when generating code, answering questions, or reviewing changes.
 
+use pnpm for package management.
+
 1. **Project Structure**: Understand the folder structure and where different types of files are located (e.g., components, hooks, services).
 
 2. **Data Flow**: Be aware of how data flows through the application, including the use of context, props, and state management.

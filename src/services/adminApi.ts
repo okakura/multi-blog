@@ -413,6 +413,45 @@ class AdminApiService {
       throw error
     }
   }
+
+  // User Preferences Methods
+  async getPreferences(): Promise<any> {
+    try {
+      const response = await fetch(`${this.baseUrl}/profile/preferences`, {
+        headers: this.getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch preferences: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      return data.preferences
+    } catch (error) {
+      console.error('Error fetching preferences:', error)
+      throw error
+    }
+  }
+
+  async savePreferences(preferences: any): Promise<any> {
+    try {
+      const response = await fetch(`${this.baseUrl}/profile/preferences`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ preferences }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to save preferences: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      return data.preferences
+    } catch (error) {
+      console.error('Error saving preferences:', error)
+      throw error
+    }
+  }
 }
 
 export const adminApiService = new AdminApiService()

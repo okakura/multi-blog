@@ -99,7 +99,13 @@ const BlogPostPage: React.FC = () => {
 
   const estimateReadTime = (content: string) => {
     const wordsPerMinute = 200
-    const wordCount = content.split(/\s+/).length
+    // Strip HTML tags for accurate word count
+    const tmp = document.createElement('div')
+    tmp.innerHTML = content
+    const plainText = tmp.textContent || tmp.innerText || ''
+    const wordCount = plainText
+      .split(/\s+/)
+      .filter((word) => word.length > 0).length
     return Math.ceil(wordCount / wordsPerMinute)
   }
 
@@ -214,7 +220,7 @@ const BlogPostPage: React.FC = () => {
               <div
                 className='prose prose-lg max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-strong:text-gray-900 prose-a:text-blue-600 hover:prose-a:text-blue-800'
                 dangerouslySetInnerHTML={{
-                  __html: post.content.replace(/\n/g, '<br/>'),
+                  __html: post.content,
                 }}
               />
             </div>

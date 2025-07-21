@@ -1,6 +1,12 @@
-/* Import Tailwind CSS */
+/* Tailwind CSS v4 import */
 @import 'tailwindcss';
-/* 
+
+/* Define dark mode variant for class-based dark mode */
+@variant dark (html[class~="dark"] &);
+
+/* Import Rich Text Editor styles */
+@import './components/RichTextEditor.css';
+
 /* Import better fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
@@ -128,4 +134,4 @@ select:focus {
   font-size: 1.2rem;
   font-weight: 400;
   opacity: 0.5;
-} 
+}

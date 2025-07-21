@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
-    routing::get,
+    routing::{get, put},
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -37,6 +37,10 @@ impl super::HandlerModule for AdminModule {
                 "/domains/{id}",
                 get(get_domain).put(update_domain).delete(delete_domain),
             )
+            .route(
+                "/profile/preferences",
+                get(get_user_preferences).put(update_user_preferences),
+            )
     }
 
     fn mount_path() -> &'static str {
@@ -64,6 +68,16 @@ struct AdminPostResponse {
     status: Option<String>,
     created_at: Option<chrono::DateTime<chrono::Utc>>,
     updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct UserPreferencesRequest {
+    preferences: serde_json::Value,
+}
+
+#[derive(Serialize)]
+struct UserPreferencesResponse {
+    preferences: serde_json::Value,
 }
 
 // Check if user has permission for this domain
@@ -350,9 +364,23 @@ async fn get_analytics_summary(
 async fn get_domain_settings(
     Extension(domain): Extension<DomainContext>,
     Extension(user): Extension<UserContext>,
-) -> Result<Json<DomainContext>, StatusCode> {
+) -> Result<Json<serde_json::Value>, StatusCode> {
     check_domain_permission(&user, domain.id, "viewer")?;
-    Ok(Json(domain))
+
+    // Return comprehensive domain settings including all stored configuration
+    let settings = serde_json::json!({
+        "id": domain.id,
+        "hostname": domain.hostname,
+        "name": domain.name,
+        "theme_config": domain.theme_config,
+        "categories": domain.categories,
+        "seo_config": domain.theme_config.get("seo_config").unwrap_or(&serde_json::json!({})),
+        "analytics_config": domain.theme_config.get("analytics_config").unwrap_or(&serde_json::json!({})),
+        "content_config": domain.theme_config.get("content_config").unwrap_or(&serde_json::json!({})),
+        "social_config": domain.theme_config.get("social_config").unwrap_or(&serde_json::json!({}))
+    });
+
+    Ok(Json(settings))
 }
 
 async fn update_domain_settings(
@@ -360,28 +388,59 @@ async fn update_domain_settings(
     Extension(user): Extension<UserContext>,
     State(state): State<Arc<AppState>>,
     Json(payload): Json<serde_json::Value>,
-) -> Result<Json<DomainContext>, StatusCode> {
+) -> Result<Json<serde_json::Value>, StatusCode> {
     check_domain_permission(&user, domain.id, "admin")?;
 
-    // Update domain settings (simplified)
-    let default_theme = serde_json::json!({});
-    let default_categories = serde_json::json!([]);
+    // Extract individual settings from payload
+    let theme_config = payload
+        .get("theme_config")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    let categories = payload
+        .get("categories")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!([]));
+    let seo_config = payload
+        .get("seo_config")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    let analytics_config = payload
+        .get("analytics_config")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    let content_config = payload
+        .get("content_config")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    let social_config = payload
+        .get("social_config")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
 
-    let theme_config = payload.get("theme_config").unwrap_or(&default_theme);
-    let categories = payload.get("categories").unwrap_or(&default_categories);
+    // Create comprehensive settings object
+    let comprehensive_settings = serde_json::json!({
+        "theme_config": theme_config,
+        "categories": categories,
+        "seo_config": seo_config,
+        "analytics_config": analytics_config,
+        "content_config": content_config,
+        "social_config": social_config,
+        "updated_at": chrono::Utc::now()
+    });
 
+    // Update the domain with all settings
     sqlx::query!(
-        "UPDATE domains SET theme_config = $2, categories = $3 WHERE id = $1",
+        "UPDATE domains SET theme_config = $2, categories = $3, updated_at = NOW() WHERE id = $1",
         domain.id,
-        theme_config,
+        &comprehensive_settings,
         categories
     )
     .execute(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Return updated domain (in real implementation, you'd fetch from DB)
-    Ok(Json(domain))
+    // Return the comprehensive settings
+    Ok(Json(comprehensive_settings))
 }
 
 // Domain Management Structs
@@ -1316,5 +1375,40 @@ async fn get_admin_referrer_stats(
     Ok(Json(AdminReferrerResponse {
         top_referrers,
         referrer_types,
+    }))
+}
+
+// Get user preferences
+async fn get_user_preferences(
+    Extension(user): Extension<UserContext>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<UserPreferencesResponse>, StatusCode> {
+    let preferences = sqlx::query_scalar!("SELECT preferences FROM users WHERE id = $1", user.id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .flatten()
+        .unwrap_or_else(|| serde_json::json!({}));
+
+    Ok(Json(UserPreferencesResponse { preferences }))
+}
+
+// Update user preferences
+async fn update_user_preferences(
+    Extension(user): Extension<UserContext>,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<UserPreferencesRequest>,
+) -> Result<Json<UserPreferencesResponse>, StatusCode> {
+    sqlx::query!(
+        "UPDATE users SET preferences = $1, updated_at = NOW() WHERE id = $2",
+        payload.preferences,
+        user.id
+    )
+    .execute(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(UserPreferencesResponse {
+        preferences: payload.preferences,
     }))
 }

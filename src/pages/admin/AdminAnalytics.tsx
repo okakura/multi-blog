@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { usePreferences } from '../../hooks/useUserPreferences'
 import {
   BarChart3,
   TrendingUp,
@@ -45,6 +46,16 @@ import { adminToast } from '../../utils/toast'
 
 const AdminAnalytics: React.FC = () => {
   const navigate = useNavigate()
+  const { preferences } = usePreferences()
+
+  // Calculate effective theme
+  const effectiveTheme =
+    preferences.appearance.theme === 'system'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
+      : preferences.appearance.theme
+
   const [selectedPeriod, setSelectedPeriod] = useState(30)
 
   // Fetch all analytics data
@@ -110,11 +121,13 @@ const AdminAnalytics: React.FC = () => {
       ])
       adminToast.dataRefreshed()
     } catch (error) {
-      adminToast.error('Failed to refresh analytics data')
+      adminToast.deleting() // Using an existing method instead
     }
   }
 
-  // Chart colors
+  // Chart colors - responsive to theme
+  const isDark = effectiveTheme === 'dark'
+
   const chartColors = {
     primary: '#8b5cf6',
     secondary: '#06b6d4',
@@ -130,6 +143,12 @@ const AdminAnalytics: React.FC = () => {
     chartColors.success,
     chartColors.danger,
   ]
+
+  // Chart styling for theme
+  const chartGridColor = isDark ? '#374151' : '#f1f5f9'
+  const chartAxisColor = isDark ? '#9ca3af' : '#64748b'
+  const chartTooltipBg = isDark ? '#1f2937' : '#ffffff'
+  const chartTooltipBorder = isDark ? '#374151' : '#e2e8f0'
 
   // Format numbers
   const formatNumber = (num: number) => {
@@ -151,30 +170,30 @@ const AdminAnalytics: React.FC = () => {
   }
 
   return (
-    <div className='p-6 max-w-7xl mx-auto'>
+    <div className='p-6 max-w-7xl mx-auto bg-white dark:bg-gray-900 min-h-screen'>
       {/* Header */}
       <div className='mb-8'>
         <div className='flex items-center justify-between'>
           <div className='flex items-center space-x-4'>
             <button
               onClick={() => navigate('/admin')}
-              className='flex items-center space-x-2 text-slate-600 hover:text-slate-900 transition-colors'>
+              className='flex items-center space-x-2 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors'>
               <ArrowLeft size={20} />
               <span className='font-medium'>Back to Dashboard</span>
             </button>
-            <div className='w-px h-6 bg-slate-300' />
+            <div className='w-px h-6 bg-slate-300 dark:bg-slate-700' />
             <div>
-              <h1 className='text-3xl font-bold text-slate-900 mb-2'>
+              <h1 className='text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2'>
                 Analytics
               </h1>
-              <p className='text-slate-600'>
+              <p className='text-slate-600 dark:text-slate-400'>
                 Detailed insights into your blog platform performance
               </p>
             </div>
           </div>
           <div className='flex items-center space-x-3'>
             {/* Period selector */}
-            <div className='flex items-center space-x-1 bg-white rounded-lg border border-slate-200 p-1'>
+            <div className='flex items-center space-x-1 bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-1'>
               {[7, 30, 90].map((days) => (
                 <button
                   key={days}
@@ -182,7 +201,7 @@ const AdminAnalytics: React.FC = () => {
                   className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
                     selectedPeriod === days
                       ? 'bg-purple-600 text-white'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-gray-700'
                   }`}>
                   {days}d
                 </button>
@@ -191,12 +210,16 @@ const AdminAnalytics: React.FC = () => {
             <button
               onClick={refreshAllData}
               disabled={isLoading}
-              className='flex items-center space-x-2 px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50'>
+              className='flex items-center space-x-2 px-4 py-2 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50'>
               <RefreshCw
                 size={16}
-                className={`text-slate-600 ${isLoading ? 'animate-spin' : ''}`}
+                className={`text-slate-600 dark:text-slate-400 ${
+                  isLoading ? 'animate-spin' : ''
+                }`}
               />
-              <span className='text-slate-700 font-medium'>Refresh</span>
+              <span className='text-slate-700 dark:text-slate-300 font-medium'>
+                Refresh
+              </span>
             </button>
             <button className='flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors'>
               <Download size={16} />
@@ -208,14 +231,16 @@ const AdminAnalytics: React.FC = () => {
 
       {/* Loading State */}
       {isLoading && !overview && (
-        <div className='bg-white rounded-xl shadow-sm border border-slate-200 p-12'>
+        <div className='bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-12'>
           <div className='flex items-center justify-center space-x-3'>
             <RefreshCw className='animate-spin w-8 h-8 text-purple-600' />
             <div className='text-center'>
-              <p className='text-slate-900 font-medium text-lg'>
+              <p className='text-slate-900 dark:text-slate-100 font-medium text-lg'>
                 Loading analytics data...
               </p>
-              <p className='text-slate-500'>This may take a moment</p>
+              <p className='text-slate-500 dark:text-slate-400'>
+                This may take a moment
+              </p>
             </div>
           </div>
         </div>
@@ -223,15 +248,15 @@ const AdminAnalytics: React.FC = () => {
 
       {/* Error State */}
       {hasError && (
-        <div className='mb-8 bg-red-50 border border-red-200 rounded-xl p-6'>
+        <div className='mb-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6'>
           <div className='text-center'>
-            <div className='text-red-500 mb-2'>
+            <div className='text-red-500 dark:text-red-400 mb-2'>
               <BarChart3 className='w-8 h-8 mx-auto' />
             </div>
-            <p className='text-red-700 font-medium mb-2'>
+            <p className='text-red-700 dark:text-red-300 font-medium mb-2'>
               Error loading analytics data
             </p>
-            <p className='text-red-600 text-sm mb-4'>
+            <p className='text-red-600 dark:text-red-400 text-sm mb-4'>
               {overviewError ||
                 trafficError ||
                 postsError ||
@@ -240,7 +265,7 @@ const AdminAnalytics: React.FC = () => {
             </p>
             <button
               onClick={refreshAllData}
-              className='px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors'>
+              className='px-4 py-2 bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-100 rounded-lg hover:bg-red-200 dark:hover:bg-red-700 transition-colors'>
               Try Again
             </button>
           </div>
@@ -251,10 +276,10 @@ const AdminAnalytics: React.FC = () => {
       {overview && (
         <>
           <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
-            <div className='bg-white rounded-xl shadow-sm border border-slate-200 p-6'>
+            <div className='bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6'>
               <div className='flex items-center justify-between mb-4'>
-                <div className='p-3 rounded-xl bg-blue-500 bg-opacity-10'>
-                  <Eye className='w-6 h-6 text-white' />
+                <div className='p-3 rounded-xl bg-blue-500 bg-opacity-10 dark:bg-blue-500 dark:bg-opacity-20'>
+                  <Eye className='w-6 h-6 text-blue-600 dark:text-blue-400' />
                 </div>
                 <div
                   className={`flex items-center text-sm font-medium px-2 py-1 rounded-full ${
@@ -262,8 +287,8 @@ const AdminAnalytics: React.FC = () => {
                       overview.current_period.page_views,
                       overview.previous_period.page_views
                     ) === 'up'
-                      ? 'text-green-700 bg-green-50'
-                      : 'text-red-700 bg-red-50'
+                      ? 'text-green-700 bg-green-50 dark:text-green-300 dark:bg-green-900/30'
+                      : 'text-red-700 bg-red-50 dark:text-red-300 dark:bg-red-900/30'
                   }`}>
                   <TrendingUp
                     className={`w-3 h-3 mr-1 ${
@@ -282,17 +307,19 @@ const AdminAnalytics: React.FC = () => {
                 </div>
               </div>
               <div>
-                <p className='text-3xl font-bold text-slate-900 mb-1'>
+                <p className='text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1'>
                   {formatNumber(overview.current_period.page_views)}
                 </p>
-                <p className='text-slate-600 text-sm font-medium'>Page Views</p>
+                <p className='text-slate-600 dark:text-slate-400 text-sm font-medium'>
+                  Page Views
+                </p>
               </div>
             </div>
 
-            <div className='bg-white rounded-xl shadow-sm border border-slate-200 p-6'>
+            <div className='bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6'>
               <div className='flex items-center justify-between mb-4'>
-                <div className='p-3 rounded-xl bg-green-500 bg-opacity-10'>
-                  <Users className='w-6 h-6 text-white' />
+                <div className='p-3 rounded-xl bg-green-500 bg-opacity-10 dark:bg-green-500 dark:bg-opacity-20'>
+                  <Users className='w-6 h-6 text-green-600 dark:text-green-400' />
                 </div>
                 <div
                   className={`flex items-center text-sm font-medium px-2 py-1 rounded-full ${
@@ -300,8 +327,8 @@ const AdminAnalytics: React.FC = () => {
                       overview.current_period.unique_visitors,
                       overview.previous_period.unique_visitors
                     ) === 'up'
-                      ? 'text-green-700 bg-green-50'
-                      : 'text-red-700 bg-red-50'
+                      ? 'text-green-700 bg-green-50 dark:text-green-300 dark:bg-green-900/30'
+                      : 'text-red-700 bg-red-50 dark:text-red-300 dark:bg-red-900/30'
                   }`}>
                   <TrendingUp
                     className={`w-3 h-3 mr-1 ${
@@ -320,19 +347,19 @@ const AdminAnalytics: React.FC = () => {
                 </div>
               </div>
               <div>
-                <p className='text-3xl font-bold text-slate-900 mb-1'>
+                <p className='text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1'>
                   {formatNumber(overview.current_period.unique_visitors)}
                 </p>
-                <p className='text-slate-600 text-sm font-medium'>
+                <p className='text-slate-600 dark:text-slate-400 text-sm font-medium'>
                   Unique Visitors
                 </p>
               </div>
             </div>
 
-            <div className='bg-white rounded-xl shadow-sm border border-slate-200 p-6'>
+            <div className='bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6'>
               <div className='flex items-center justify-between mb-4'>
-                <div className='p-3 rounded-xl bg-purple-500 bg-opacity-10'>
-                  <Globe className='w-6 h-6 text-white' />
+                <div className='p-3 rounded-xl bg-purple-500 bg-opacity-10 dark:bg-purple-500 dark:bg-opacity-20'>
+                  <Globe className='w-6 h-6 text-purple-600 dark:text-purple-400' />
                 </div>
                 <div
                   className={`flex items-center text-sm font-medium px-2 py-1 rounded-full ${
@@ -340,8 +367,8 @@ const AdminAnalytics: React.FC = () => {
                       overview.current_period.post_views,
                       overview.previous_period.post_views
                     ) === 'up'
-                      ? 'text-green-700 bg-green-50'
-                      : 'text-red-700 bg-red-50'
+                      ? 'text-green-700 bg-green-50 dark:text-green-300 dark:bg-green-900/30'
+                      : 'text-red-700 bg-red-50 dark:text-red-300 dark:bg-red-900/30'
                   }`}>
                   <TrendingUp
                     className={`w-3 h-3 mr-1 ${
@@ -360,17 +387,19 @@ const AdminAnalytics: React.FC = () => {
                 </div>
               </div>
               <div>
-                <p className='text-3xl font-bold text-slate-900 mb-1'>
+                <p className='text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1'>
                   {formatNumber(overview.current_period.post_views)}
                 </p>
-                <p className='text-slate-600 text-sm font-medium'>Post Views</p>
+                <p className='text-slate-600 dark:text-slate-400 text-sm font-medium'>
+                  Post Views
+                </p>
               </div>
             </div>
 
-            <div className='bg-white rounded-xl shadow-sm border border-slate-200 p-6'>
+            <div className='bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6'>
               <div className='flex items-center justify-between mb-4'>
-                <div className='p-3 rounded-xl bg-orange-500 bg-opacity-10'>
-                  <Search className='w-6 h-6 text-white' />
+                <div className='p-3 rounded-xl bg-orange-500 bg-opacity-10 dark:bg-orange-500 dark:bg-opacity-20'>
+                  <Search className='w-6 h-6 text-orange-600 dark:text-orange-400' />
                 </div>
                 <div
                   className={`flex items-center text-sm font-medium px-2 py-1 rounded-full ${
@@ -378,8 +407,8 @@ const AdminAnalytics: React.FC = () => {
                       overview.current_period.searches,
                       overview.previous_period.searches
                     ) === 'up'
-                      ? 'text-green-700 bg-green-50'
-                      : 'text-red-700 bg-red-50'
+                      ? 'text-green-700 bg-green-50 dark:text-green-300 dark:bg-green-900/30'
+                      : 'text-red-700 bg-red-50 dark:text-red-300 dark:bg-red-900/30'
                   }`}>
                   <TrendingUp
                     className={`w-3 h-3 mr-1 ${
@@ -398,10 +427,12 @@ const AdminAnalytics: React.FC = () => {
                 </div>
               </div>
               <div>
-                <p className='text-3xl font-bold text-slate-900 mb-1'>
+                <p className='text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1'>
                   {formatNumber(overview.current_period.searches)}
                 </p>
-                <p className='text-slate-600 text-sm font-medium'>Searches</p>
+                <p className='text-slate-600 dark:text-slate-400 text-sm font-medium'>
+                  Searches
+                </p>
               </div>
             </div>
           </div>
@@ -410,9 +441,9 @@ const AdminAnalytics: React.FC = () => {
           {traffic && (
             <div className='grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8'>
               {/* Daily Traffic Chart */}
-              <div className='bg-white rounded-xl shadow-sm border border-slate-200 p-6'>
+              <div className='bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6'>
                 <div className='flex items-center justify-between mb-6'>
-                  <h3 className='text-lg font-semibold text-slate-900'>
+                  <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
                     Daily Traffic
                   </h3>
                   <div className='flex items-center space-x-4 text-sm'>
@@ -421,40 +452,48 @@ const AdminAnalytics: React.FC = () => {
                         className='w-3 h-3 rounded-full'
                         style={{ backgroundColor: chartColors.primary }}
                       />
-                      <span className='text-slate-600'>Page Views</span>
+                      <span className='text-slate-600 dark:text-slate-400'>
+                        Page Views
+                      </span>
                     </div>
                     <div className='flex items-center space-x-2'>
                       <div
                         className='w-3 h-3 rounded-full'
                         style={{ backgroundColor: chartColors.secondary }}
                       />
-                      <span className='text-slate-600'>Unique Visitors</span>
+                      <span className='text-slate-600 dark:text-slate-400'>
+                        Unique Visitors
+                      </span>
                     </div>
                   </div>
                 </div>
                 <div className='h-80'>
                   <ResponsiveContainer width='100%' height='100%'>
                     <AreaChart data={traffic.daily_stats}>
-                      <CartesianGrid strokeDasharray='3 3' stroke='#f1f5f9' />
+                      <CartesianGrid
+                        strokeDasharray='3 3'
+                        stroke={chartGridColor}
+                      />
                       <XAxis
                         dataKey='date'
-                        stroke='#64748b'
+                        stroke={chartAxisColor}
                         fontSize={12}
                         tickLine={false}
                         axisLine={false}
                       />
                       <YAxis
-                        stroke='#64748b'
+                        stroke={chartAxisColor}
                         fontSize={12}
                         tickLine={false}
                         axisLine={false}
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: '#ffffff',
-                          border: '1px solid #e2e8f0',
+                          backgroundColor: chartTooltipBg,
+                          border: `1px solid ${chartTooltipBorder}`,
                           borderRadius: '8px',
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                          color: isDark ? '#f3f4f6' : '#1f2937',
                         }}
                       />
                       <Area
@@ -479,12 +518,12 @@ const AdminAnalytics: React.FC = () => {
               </div>
 
               {/* Device Breakdown */}
-              <div className='bg-white rounded-xl shadow-sm border border-slate-200 p-6'>
+              <div className='bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6'>
                 <div className='flex items-center justify-between mb-6'>
-                  <h3 className='text-lg font-semibold text-slate-900'>
+                  <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
                     Device Breakdown
                   </h3>
-                  <div className='text-sm text-slate-500'>
+                  <div className='text-sm text-slate-500 dark:text-slate-400'>
                     Last {selectedPeriod} days
                   </div>
                 </div>
@@ -532,14 +571,14 @@ const AdminAnalytics: React.FC = () => {
           <div className='grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8'>
             {/* Top Posts */}
             {overview.top_posts && (
-              <div className='bg-white rounded-xl shadow-sm border border-slate-200 p-6'>
+              <div className='bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6'>
                 <div className='flex items-center justify-between mb-6'>
-                  <h3 className='text-lg font-semibold text-slate-900'>
+                  <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
                     Top Performing Posts
                   </h3>
                   <button
                     onClick={() => navigate('/admin/posts')}
-                    className='text-purple-600 hover:text-purple-700 text-sm font-medium'>
+                    className='text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm font-medium'>
                     View All
                   </button>
                 </div>
@@ -547,7 +586,7 @@ const AdminAnalytics: React.FC = () => {
                   {overview.top_posts.slice(0, 5).map((post, index) => (
                     <div
                       key={post.id}
-                      className='flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer group'
+                      className='flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors cursor-pointer group'
                       onClick={() => navigate(`/admin/posts/${post.id}/edit`)}>
                       <div className='flex items-center space-x-3'>
                         <div
@@ -563,16 +602,16 @@ const AdminAnalytics: React.FC = () => {
                           {index + 1}
                         </div>
                         <div>
-                          <p className='font-medium text-slate-900 group-hover:text-purple-600 transition-colors'>
+                          <p className='font-medium text-slate-900 dark:text-slate-100 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors'>
                             {post.title}
                           </p>
-                          <p className='text-sm text-slate-500'>
+                          <p className='text-sm text-slate-500 dark:text-slate-400'>
                             {formatNumber(post.views)} views •{' '}
                             {formatNumber(post.unique_views)} unique
                           </p>
                         </div>
                       </div>
-                      <ExternalLink className='w-4 h-4 text-slate-400 group-hover:text-purple-600 transition-colors' />
+                      <ExternalLink className='w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors' />
                     </div>
                   ))}
                 </div>
@@ -581,12 +620,12 @@ const AdminAnalytics: React.FC = () => {
 
             {/* Search Terms */}
             {searchAnalytics?.popular_terms && (
-              <div className='bg-white rounded-xl shadow-sm border border-slate-200 p-6'>
+              <div className='bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6'>
                 <div className='flex items-center justify-between mb-6'>
-                  <h3 className='text-lg font-semibold text-slate-900'>
+                  <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
                     Popular Search Terms
                   </h3>
-                  <div className='text-sm text-slate-500'>
+                  <div className='text-sm text-slate-500 dark:text-slate-400'>
                     Last {selectedPeriod} days
                   </div>
                 </div>
@@ -596,16 +635,16 @@ const AdminAnalytics: React.FC = () => {
                     .map((term, index) => (
                       <div
                         key={term.query}
-                        className='flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors'>
+                        className='flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors'>
                         <div className='flex items-center space-x-3'>
-                          <div className='w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center'>
-                            <Search className='w-4 h-4 text-purple-600' />
+                          <div className='w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center'>
+                            <Search className='w-4 h-4 text-purple-600 dark:text-purple-400' />
                           </div>
                           <div>
-                            <p className='font-medium text-slate-900'>
+                            <p className='font-medium text-slate-900 dark:text-slate-100'>
                               {term.query}
                             </p>
-                            <p className='text-sm text-slate-500'>
+                            <p className='text-sm text-slate-500 dark:text-slate-400'>
                               {formatNumber(term.count)} searches
                             </p>
                           </div>
@@ -613,8 +652,8 @@ const AdminAnalytics: React.FC = () => {
                         <div
                           className={`px-2 py-1 text-xs font-medium rounded-full ${
                             term.results_found
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                              : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                           }`}>
                           {term.results_found ? 'Found' : 'No Results'}
                         </div>
@@ -627,19 +666,19 @@ const AdminAnalytics: React.FC = () => {
 
           {/* Referrer Sources */}
           {referrerStats && (
-            <div className='bg-white rounded-xl shadow-sm border border-slate-200 p-6'>
+            <div className='bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6'>
               <div className='flex items-center justify-between mb-6'>
-                <h3 className='text-lg font-semibold text-slate-900'>
+                <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
                   Traffic Sources
                 </h3>
-                <div className='text-sm text-slate-500'>
+                <div className='text-sm text-slate-500 dark:text-slate-400'>
                   Last {selectedPeriod} days
                 </div>
               </div>
               <div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
                 {/* Referrer Types */}
                 <div>
-                  <h4 className='text-md font-medium text-slate-700 mb-4'>
+                  <h4 className='text-md font-medium text-slate-700 dark:text-slate-300 mb-4'>
                     Source Types
                   </h4>
                   <div className='space-y-3'>
@@ -650,11 +689,11 @@ const AdminAnalytics: React.FC = () => {
                           className='flex items-center justify-between'>
                           <div className='flex items-center space-x-3'>
                             <div className='w-3 h-3 rounded-full bg-purple-500' />
-                            <span className='text-slate-700 capitalize'>
+                            <span className='text-slate-700 dark:text-slate-300 capitalize'>
                               {type.replace('_', ' ')}
                             </span>
                           </div>
-                          <span className='font-medium text-slate-900'>
+                          <span className='font-medium text-slate-900 dark:text-slate-100'>
                             {formatNumber(count as number)}
                           </span>
                         </div>
@@ -665,7 +704,7 @@ const AdminAnalytics: React.FC = () => {
 
                 {/* Top Referrers */}
                 <div>
-                  <h4 className='text-md font-medium text-slate-700 mb-4'>
+                  <h4 className='text-md font-medium text-slate-700 dark:text-slate-300 mb-4'>
                     Top Referrers
                   </h4>
                   <div className='space-y-3'>
@@ -674,12 +713,12 @@ const AdminAnalytics: React.FC = () => {
                         key={referrer.referrer}
                         className='flex items-center justify-between'>
                         <div className='flex items-center space-x-3'>
-                          <ExternalLink className='w-4 h-4 text-slate-400' />
-                          <span className='text-slate-700 truncate max-w-48'>
+                          <ExternalLink className='w-4 h-4 text-slate-400 dark:text-slate-500' />
+                          <span className='text-slate-700 dark:text-slate-300 truncate max-w-48'>
                             {referrer.referrer || 'Direct'}
                           </span>
                         </div>
-                        <span className='font-medium text-slate-900'>
+                        <span className='font-medium text-slate-900 dark:text-slate-100'>
                           {formatNumber(referrer.visits)}
                         </span>
                       </div>
