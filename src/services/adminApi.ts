@@ -74,6 +74,85 @@ export interface EnhancedAnalyticsSummary extends AnalyticsSummary {
   top_categories?: TopCategory[]
   current_period?: PeriodStats
   previous_period?: PeriodStats
+  overview?: {
+    total_sessions: number
+    total_page_views: number
+    avg_session_duration: number
+    bounce_rate: number
+    unique_visitors: number
+  }
+  behavior?: {
+    top_clicked_elements: Array<{ element: string; clicks: number }>
+    scroll_depth_distribution: Array<{ depth: number; percentage: number }>
+    engagement_score_avg: number
+  }
+  search?: {
+    top_queries: Array<{ query: string; count: number; results_avg: number }>
+    no_results_rate: number
+    search_to_click_rate: number
+  }
+  content?: {
+    top_content: Array<{
+      content_id: string
+      title: string
+      views: number
+      avg_reading_time: number
+      engagement_score: number
+    }>
+    avg_reading_time: number
+    content_completion_rate: number
+  }
+}
+
+export interface TrafficStats {
+  daily_stats: Array<{
+    date: string
+    page_views: number
+    unique_visitors: number
+    post_views: number
+  }>
+  hourly_distribution: Array<{
+    hour: number
+    page_views: number
+    unique_visitors: number
+  }>
+  device_breakdown: {
+    mobile: number
+    desktop: number
+    tablet: number
+    unknown: number
+  }
+}
+
+export interface SearchAnalytics {
+  popular_terms: Array<{
+    query: string
+    count: number
+    results_found: boolean
+  }>
+  search_volume_trend: Array<{
+    date: string
+    searches: number
+  }>
+  no_results_queries: Array<{
+    query: string
+    count: number
+    results_found: boolean
+  }>
+}
+
+export interface ReferrerStats {
+  top_referrers: Array<{
+    referrer: string
+    visits: number
+    unique_visitors: number
+  }>
+  referrer_types: {
+    direct: number
+    search: number
+    social: number
+    other: number
+  }
 }
 
 export interface Domain {
@@ -119,17 +198,15 @@ class AdminApiService {
   // Helper to build analytics API URLs
   private buildAnalyticsUrl(
     endpoint: string,
-    params?: Record<string, string | number>,
-    useMultiDomain: boolean = true
+    params?: Record<string, string | number>
   ): string {
     // Remove leading slash if present to avoid double slashes
     const cleanEndpoint = endpoint.startsWith('/')
       ? endpoint.slice(1)
       : endpoint
 
-    // Use new multi-domain endpoints by default
-    const prefix = useMultiDomain ? '/analytics/multi' : '/analytics'
-    return buildApiUrl(`${prefix}/${cleanEndpoint}`, params)
+    // Use simplified analytics endpoints (no multi prefix)
+    return buildApiUrl(`/analytics/${cleanEndpoint}`, params)
   }
 
   // Helper to get auth headers
@@ -312,7 +389,7 @@ class AdminApiService {
     }
   }
 
-  // Get analytics overview with days parameter - uses multi-domain endpoint
+  // Get analytics overview with days parameter
   async getAnalyticsOverview(days: number = 30, domain?: string): Promise<any> {
     try {
       const params: Record<string, string | number> = { days }
@@ -320,7 +397,7 @@ class AdminApiService {
         params.domain_id = domain
       }
 
-      const url = this.buildAnalyticsUrl('overview', params)
+      const url = this.buildAnalyticsUrl('dashboard', params)
       const response = await fetch(url, {
         headers: this.getAuthHeaders(), // No domain header needed
       })
@@ -336,7 +413,7 @@ class AdminApiService {
     }
   }
 
-  // Get traffic analytics - uses multi-domain endpoint
+  // Get traffic analytics
   async getTrafficAnalytics(days: number = 30, domain?: string): Promise<any> {
     try {
       const params: Record<string, string | number> = { days }
@@ -346,7 +423,7 @@ class AdminApiService {
 
       const url = this.buildAnalyticsUrl('traffic', params)
       const response = await fetch(url, {
-        headers: this.getAuthHeaders(), // No domain header needed
+        headers: this.getAuthHeaders(),
       })
 
       if (!response.ok) {
@@ -360,7 +437,7 @@ class AdminApiService {
     }
   }
 
-  // Get post analytics - uses multi-domain endpoint
+  // Get post analytics
   async getPostAnalytics(days: number = 30, domain?: string): Promise<any> {
     try {
       const params: Record<string, string | number> = { days }
@@ -370,7 +447,7 @@ class AdminApiService {
 
       const url = this.buildAnalyticsUrl('posts', params)
       const response = await fetch(url, {
-        headers: this.getAuthHeaders(), // No domain header needed
+        headers: this.getAuthHeaders(),
       })
 
       if (!response.ok) {
@@ -384,7 +461,7 @@ class AdminApiService {
     }
   }
 
-  // Get search term analytics - uses multi-domain endpoint
+  // Get search term analytics
   async getSearchAnalytics(days: number = 30, domain?: string): Promise<any> {
     try {
       const params: Record<string, string | number> = { days }
@@ -394,7 +471,7 @@ class AdminApiService {
 
       const url = this.buildAnalyticsUrl('search-terms', params)
       const response = await fetch(url, {
-        headers: this.getAuthHeaders(), // No domain header needed
+        headers: this.getAuthHeaders(),
       })
 
       if (!response.ok) {
@@ -408,7 +485,7 @@ class AdminApiService {
     }
   }
 
-  // Get referrer analytics - uses multi-domain endpoint
+  // Get referrer analytics
   async getReferrerAnalytics(days: number = 30, domain?: string): Promise<any> {
     try {
       const params: Record<string, string | number> = { days }
@@ -418,7 +495,7 @@ class AdminApiService {
 
       const url = this.buildAnalyticsUrl('referrers', params)
       const response = await fetch(url, {
-        headers: this.getAuthHeaders(), // No domain header needed
+        headers: this.getAuthHeaders(),
       })
 
       if (!response.ok) {

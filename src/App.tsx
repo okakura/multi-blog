@@ -34,8 +34,7 @@ const AdminApp = () => {
               <Route path='/posts/new' element={<AdminCreatePostPage />} />
               <Route path='/posts/:id/edit' element={<AdminEditPost />} />
               <Route path='/profile' element={<UserProfile />} />
-              <Route path='/analytics' element={<AdminAnalytics />} />
-              <Route path='/analytics/dashboard' element={<AdminAnalyticsDashboard />} />
+              <Route path='/analytics' element={<AdminAnalyticsDashboard />} />
               <Route path='/domains' element={<AdminDomains />} />
               <Route path='/users' element={<AdminUsers />} />
               <Route path='/settings' element={<AdminSettings />} />

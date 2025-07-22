@@ -162,54 +162,17 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                     domain_middleware,
                 )),
         )
-        // Mount multi-domain analytics endpoints (auth only, no domain middleware)
+        // Mount analytics endpoints (auth required)
         .nest(
             "/analytics",
             Router::new()
+                // Dashboard endpoint (merged overview + dashboard)
                 .route(
-                    "/multi/overview",
-                    axum::routing::get(analytics::get_multi_overview),
+                    "/dashboard",
+                    axum::routing::get(analytics::get_analytics_dashboard),
                 )
-                .route(
-                    "/multi/traffic",
-                    axum::routing::get(analytics::get_multi_traffic_stats),
-                )
-                .route(
-                    "/multi/posts",
-                    axum::routing::get(analytics::get_multi_post_analytics),
-                )
-                .route(
-                    "/multi/search-terms",
-                    axum::routing::get(analytics::get_multi_search_analytics),
-                )
-                .route(
-                    "/multi/referrers",
-                    axum::routing::get(analytics::get_multi_referrer_stats),
-                )
-                .route(
-                    "/multi/real-time",
-                    axum::routing::get(analytics::get_multi_realtime_stats),
-                )
-                .route(
-                    "/multi/export",
-                    axum::routing::get(analytics::export_multi_data),
-                )
-                .layer(middleware::from_fn_with_state(
-                    state.clone(),
-                    auth_middleware,
-                )),
-        )
-        // Mount legacy single-domain analytics endpoints (auth + domain required)
-        .nest(
-            "/analytics",
-            Router::new()
-                .route("/overview", axum::routing::get(analytics::get_overview))
                 .route("/traffic", axum::routing::get(analytics::get_traffic_stats))
                 .route("/posts", axum::routing::get(analytics::get_post_analytics))
-                .route(
-                    "/posts/{id}/stats",
-                    axum::routing::get(analytics::get_post_stats),
-                )
                 .route(
                     "/search-terms",
                     axum::routing::get(analytics::get_search_analytics),
@@ -223,13 +186,26 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                     axum::routing::get(analytics::get_realtime_stats),
                 )
                 .route("/export", axum::routing::get(analytics::export_data))
+                // Behavior tracking endpoints
+                .route(
+                    "/behavior",
+                    axum::routing::post(analytics::track_behavior_event),
+                )
+                .route(
+                    "/search",
+                    axum::routing::post(analytics::track_search_event),
+                )
+                .route(
+                    "/search-click",
+                    axum::routing::post(analytics::track_search_click_event),
+                )
+                .route(
+                    "/content-metrics",
+                    axum::routing::post(analytics::track_content_metrics),
+                )
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     auth_middleware,
-                ))
-                .layer(middleware::from_fn_with_state(
-                    state.clone(),
-                    domain_middleware,
                 )),
         )
         // Add CORS layer for all routes
