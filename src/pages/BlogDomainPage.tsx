@@ -8,8 +8,10 @@ import {
   LoadingSpinner,
   PostCard,
 } from '../components'
+import { AnalyticsSearch } from '../components/search/AnalyticsSearch'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import { useThemedUtils } from '../components/ThemedComponents'
+import { useAnalytics } from '../hooks/useAnalytics'
 import { useBlogData } from '../hooks/useBlogPosts'
 import { useDomainTheme } from '../hooks/useDomainTheme'
 import { defaultConfig } from '../config/default'
@@ -79,6 +81,20 @@ const BlogContent: React.FC<{
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
           />
+          
+          {/* Enhanced Analytics Search */}
+          <div className="mb-8">
+            <AnalyticsSearch
+              domain={domain || 'default'}
+              onResults={(results) => {
+                // Handle search results if needed
+                console.log('Search results:', results.length)
+              }}
+              placeholder="Search posts with analytics tracking..."
+              className="max-w-2xl mx-auto"
+            />
+          </div>
+          
           <Categories config={defaultConfig} />
 
           {/* Loading State */}
@@ -163,6 +179,14 @@ const BlogDomainPage = () => {
     isLoading: loading,
     error,
   } = useBlogData(domain || 'default')
+
+  // Set up analytics tracking for this domain page
+  useAnalytics({
+    trackContent: true,
+    contentId: `domain-${domain || 'default'}`,
+    contentType: 'page',
+    contentTitle: `${defaultConfig.name} - ${domain || 'default'}`,
+  })
 
   const handleDomainChange = (newDomain: string) => {
     navigate(`/blog/${newDomain}`)

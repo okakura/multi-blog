@@ -44,7 +44,7 @@ const DeleteUserModal: React.FC<DeleteUserModalProps> = ({
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
-      case 'super_admin':
+      case 'platform_admin':
         return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
       case 'user':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
@@ -114,7 +114,7 @@ const DeleteUserModal: React.FC<DeleteUserModalProps> = ({
                     user.role,
                   )}`}
                 >
-                  {user.role === 'super_admin' ? 'Super Admin' : 'User'}
+                  {user.role === 'platform_admin' ? 'Platform Admin' : 'User'}
                 </span>
               </div>
 
@@ -147,7 +147,7 @@ const DeleteUserModal: React.FC<DeleteUserModalProps> = ({
               </span>
               ?
             </p>
-            {user.role === 'super_admin' && (
+            {user.role === 'platform_admin' && (
               <p className="text-sm text-orange-600 dark:text-orange-400 mt-2 flex items-center space-x-1">
                 <Shield size={14} />
                 <span>Warning: This user has super admin privileges</span>

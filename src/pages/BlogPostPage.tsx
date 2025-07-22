@@ -2,6 +2,7 @@ import { ArrowLeft, Calendar, Clock, Share2, Tag, User } from 'lucide-react'
 import React from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ErrorMessage, LoadingSpinner } from '../components'
+import { useAnalytics } from '../hooks/useAnalytics'
 import { useBlogPost } from '../hooks/useBlogPosts'
 import { blogToast } from '../utils/toast'
 
@@ -26,6 +27,14 @@ const BlogPostPage: React.FC = () => {
     domain || 'default',
     slug || ''
   )
+
+  // Set up analytics tracking for this blog post
+  useAnalytics({
+    trackContent: true,
+    contentId: post?.id.toString(),
+    contentType: 'post',
+    contentTitle: post?.title,
+  })
 
   // Show error toast when post fails to load
   React.useEffect(() => {

@@ -1,10 +1,11 @@
-// React hook for session tracking
+// Enhanced session tracking hook with comprehensive analytics integration
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
+import { analyticsService } from '../services/analyticsService'
 import { sessionApiService } from '../services/sessionApi'
 
 /**
- * Hook to automatically track user sessions and page views
+ * Hook to automatically track user sessions and comprehensive analytics
  */
 export const useSessionTracking = () => {
   const location = useLocation()
@@ -13,6 +14,12 @@ export const useSessionTracking = () => {
     // Initialize session tracking when the app loads
     const initializeSession = async () => {
       await sessionApiService.initialize()
+      const sessionId = sessionApiService.getCurrentSessionId()
+      
+      if (sessionId) {
+        analyticsService.setSessionId(sessionId)
+        console.log('🔗 Enhanced session tracking initialized:', sessionId)
+      }
     }
 
     initializeSession()
@@ -23,9 +30,15 @@ export const useSessionTracking = () => {
     }
   }, [])
 
+  // Track page views and reset analytics for new pages
   useEffect(() => {
-    // Track page views when location changes
+    // Track page view in session
     sessionApiService.trackPageView(location.pathname)
+    
+    // Reset analytics metrics for new page
+    analyticsService.resetPageMetrics()
+    
+    console.log('📊 Page analytics reset for:', location.pathname)
   }, [location.pathname])
 
   return {

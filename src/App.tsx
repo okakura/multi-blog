@@ -13,6 +13,7 @@ import BlogPostPage from './pages/BlogPostPage'
 import BlogDomainPage from './pages/BlogDomainPage'
 import Portfolio from './pages/Portfolio'
 import AdminAnalytics from './pages/admin/AdminAnalytics'
+import AdminAnalyticsDashboard from './pages/admin/AdminAnalyticsDashboard'
 import AdminCreatePostPage from './pages/admin/AdminCreatePostPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminEditPost from './pages/admin/AdminEditPost'
@@ -34,6 +35,7 @@ const AdminApp = () => {
               <Route path='/posts/:id/edit' element={<AdminEditPost />} />
               <Route path='/profile' element={<UserProfile />} />
               <Route path='/analytics' element={<AdminAnalytics />} />
+              <Route path='/analytics/dashboard' element={<AdminAnalyticsDashboard />} />
               <Route path='/domains' element={<AdminDomains />} />
               <Route path='/users' element={<AdminUsers />} />
               <Route path='/settings' element={<AdminSettings />} />
