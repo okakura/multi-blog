@@ -1,5 +1,5 @@
-import React from 'react'
-import { Sun, Moon, Monitor } from 'lucide-react'
+import { Monitor, Moon, Sun } from 'lucide-react'
+import type React from 'react'
 import { usePreferences } from '../hooks/useUserPreferences'
 
 const ThemeToggle: React.FC = () => {
@@ -17,8 +17,8 @@ const ThemeToggle: React.FC = () => {
   ] as const
 
   return (
-    <div className='relative'>
-      <div className='flex items-center bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-1'>
+    <div className="relative">
+      <div className="flex items-center bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-1">
         {themes.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -28,9 +28,10 @@ const ThemeToggle: React.FC = () => {
                 ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300'
                 : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:bg-slate-50 dark:hover:bg-gray-700'
             }`}
-            title={`Switch to ${label} theme`}>
+            title={`Switch to ${label} theme`}
+          >
             <Icon size={14} />
-            <span className='hidden sm:inline'>{label}</span>
+            <span className="hidden sm:inline">{label}</span>
           </button>
         ))}
       </div>

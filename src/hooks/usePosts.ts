@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
-import type { Post, PostsData, DomainType, NewPostForm } from '../types'
+import { useEffect, useMemo, useState } from 'react'
+import type { DomainType, NewPostForm, Post, PostsData } from '../types'
 
 // Simple mock data for development
 const mockPosts: Post[] = [
@@ -53,7 +53,7 @@ export const usePosts = (currentDomain: DomainType) => {
         post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         post.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
         post.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        post.category.toLowerCase().includes(searchTerm.toLowerCase())
+        post.category.toLowerCase().includes(searchTerm.toLowerCase()),
     )
   }, [currentPosts, searchTerm])
 

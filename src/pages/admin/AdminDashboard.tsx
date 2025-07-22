@@ -1,20 +1,20 @@
-import React from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
-  FileText,
-  Users,
-  Globe,
+  Activity,
+  ArrowUpRight,
   BarChart3,
   Clock,
   Eye,
-  ArrowUpRight,
-  TrendingUp,
-  Activity,
+  FileText,
+  Globe,
   RefreshCw,
+  TrendingUp,
+  Users,
 } from 'lucide-react'
-import { useAdminPosts, useAdminAnalytics } from '../../hooks/useAdminPosts'
-import { AdminPreferencesStatus } from '../../components/admin/AdminPreferencesStatus'
+import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import AdminPerformanceMetrics from '../../components/admin/AdminPerformanceMetrics'
+import { AdminPreferencesStatus } from '../../components/admin/AdminPreferencesStatus'
+import { useAdminAnalytics, useAdminPosts } from '../../hooks/useAdminPosts'
 import type { TopPost } from '../../services/adminApi'
 import { adminToast } from '../../utils/toast'
 
@@ -38,7 +38,7 @@ const AdminDashboard: React.FC = () => {
     isLoading: analyticsLoading,
     error: analyticsError,
     refresh: refreshAnalytics,
-  } = useAdminAnalytics()
+  } = useAdminAnalytics() // Now uses multi-domain endpoint by default
 
   // Fetch recent posts
   const { posts: recentPosts, isLoading: postsLoading } = useAdminPosts()

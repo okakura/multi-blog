@@ -42,7 +42,7 @@ class ApiService {
   async getPosts(
     domain: string,
     page = 1,
-    limit = 10
+    limit = 10,
   ): Promise<ApiPostsResponse> {
     const hostHeader = this.getHostHeader(domain)
 
@@ -54,7 +54,7 @@ class ApiService {
             Host: hostHeader,
             'Content-Type': 'application/json',
           },
-        }
+        },
       )
 
       if (!response.ok) {
@@ -103,7 +103,7 @@ class ApiService {
             Host: hostHeader,
             'Content-Type': 'application/json',
           },
-        }
+        },
       )
 
       if (!response.ok) {
@@ -120,7 +120,7 @@ class ApiService {
   // Get posts by category
   async getPostsByCategory(
     domain: string,
-    category: string
+    category: string,
   ): Promise<ApiPostsResponse> {
     const hostHeader = this.getHostHeader(domain)
 
@@ -132,12 +132,12 @@ class ApiService {
             Host: hostHeader,
             'Content-Type': 'application/json',
           },
-        }
+        },
       )
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch posts by category: ${response.statusText}`
+          `Failed to fetch posts by category: ${response.statusText}`,
         )
       }
 

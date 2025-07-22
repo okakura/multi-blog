@@ -1,44 +1,45 @@
-import React, { useState, useEffect } from 'react'
-import { useAuth } from '../../contexts/AuthContext'
-import { adminToast, showToast } from '../../utils/toast'
-import { usePreferences } from '../../hooks/useUserPreferences'
-import type { ExpandedSections } from '../../types/preferences'
 import {
-  User,
-  Mail,
-  Shield,
-  Save,
-  X,
-  Settings,
-  Moon,
-  Sun,
-  Monitor,
+  Activity,
+  BarChart,
   Bell,
-  Globe,
-  Palette,
-  Clock,
-  Layout,
+  BookOpen,
   ChevronDown,
   ChevronUp,
-  FileText,
-  BarChart,
-  Lock,
-  Eye,
-  Type,
-  Image,
-  Timer,
-  Activity,
-  Smartphone,
+  Clock,
   Edit,
-  BookOpen,
+  Eye,
+  FileText,
+  Globe,
+  Image,
+  Layout,
+  Lock,
+  Mail,
+  Monitor,
+  Moon,
+  Palette,
+  Save,
+  Settings,
+  Shield,
+  Smartphone,
+  Sun,
+  Timer,
   TrendingUp,
+  Type,
+  User,
+  X,
 } from 'lucide-react'
+import type React from 'react'
+import { useEffect, useState } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
+import { usePreferences } from '../../hooks/useUserPreferences'
+import type { ExpandedSections } from '../../types/preferences'
+import { adminToast, showToast } from '../../utils/toast'
 
 const UserProfile: React.FC = () => {
   const { user } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [activeTab, setActiveTab] = useState<'profile' | 'preferences'>(
-    'profile'
+    'profile',
   )
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -58,7 +59,7 @@ const UserProfile: React.FC = () => {
 
   // UI state for expanded sections (replaces Zustand store)
   const [expandedSections, setExpandedSections] = useState<ExpandedSections>(
-    defaultExpandedSections
+    defaultExpandedSections,
   )
 
   // Load expanded sections from localStorage on mount
@@ -79,7 +80,7 @@ const UserProfile: React.FC = () => {
     try {
       localStorage.setItem(
         'preferences-ui',
-        JSON.stringify({ expandedSections })
+        JSON.stringify({ expandedSections }),
       )
     } catch (error) {
       console.warn('Failed to save preferences UI state:', error)
@@ -165,7 +166,7 @@ const UserProfile: React.FC = () => {
   const handlePreferenceChange = (
     category: string,
     key: string,
-    value: any
+    value: any,
   ) => {
     updatePreference(category as any, key as any, value)
   }
@@ -189,36 +190,37 @@ const UserProfile: React.FC = () => {
 
   if (!user) {
     return (
-      <div className='p-6'>
-        <div className='text-center'>
-          <p className='text-slate-500'>No user information available</p>
+      <div className="p-6">
+        <div className="text-center">
+          <p className="text-slate-500">No user information available</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className='p-6 max-w-6xl mx-auto'>
-      <div className='bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700'>
+    <div className="p-6 max-w-6xl mx-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-gray-700">
         {/* Header with Tabs */}
-        <div className='px-6 py-4 border-b border-slate-200 dark:border-gray-700'>
-          <h1 className='text-2xl font-bold text-slate-900 dark:text-slate-100'>
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-gray-700">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             Account Settings
           </h1>
-          <p className='text-slate-600 dark:text-slate-400 mt-1'>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">
             Manage your account information and preferences
           </p>
 
           {/* Tab Navigation */}
-          <div className='flex space-x-8 mt-6'>
+          <div className="flex space-x-8 mt-6">
             <button
               onClick={() => setActiveTab('profile')}
               className={`pb-4 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'profile'
                   ? 'border-purple-500 text-purple-600 dark:text-purple-400'
                   : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-              }`}>
-              <div className='flex items-center space-x-2'>
+              }`}
+            >
+              <div className="flex items-center space-x-2">
                 <User size={16} />
                 <span>Profile</span>
               </div>
@@ -229,8 +231,9 @@ const UserProfile: React.FC = () => {
                 activeTab === 'preferences'
                   ? 'border-purple-500 text-purple-600 dark:text-purple-400'
                   : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-              }`}>
-              <div className='flex items-center space-x-2'>
+              }`}
+            >
+              <div className="flex items-center space-x-2">
                 <Settings size={16} />
                 <span>Preferences</span>
               </div>
@@ -239,50 +242,52 @@ const UserProfile: React.FC = () => {
         </div>
 
         {/* Content */}
-        <div className='p-6'>
+        <div className="p-6">
           {activeTab === 'profile' && (
-            <div className='flex items-start space-x-6'>
+            <div className="flex items-start space-x-6">
               {/* Avatar */}
-              <div className='flex-shrink-0'>
-                <div className='w-20 h-20 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center'>
-                  <User size={32} className='text-white' />
+              <div className="flex-shrink-0">
+                <div className="w-20 h-20 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
+                  <User size={32} className="text-white" />
                 </div>
               </div>
 
               {/* User Info */}
-              <div className='flex-1 min-w-0'>
-                <div className='flex items-center justify-between mb-4'>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h2 className='text-xl font-semibold text-slate-900 dark:text-slate-100'>
+                    <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
                       {user.name}
                     </h2>
-                    <div className='flex items-center space-x-2 mt-1'>
+                    <div className="flex items-center space-x-2 mt-1">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(
-                          user.role
-                        )}`}>
-                        <Shield className='w-3 h-3 mr-1' />
+                          user.role,
+                        )}`}
+                      >
+                        <Shield className="w-3 h-3 mr-1" />
                         {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                       </span>
                     </div>
                   </div>
                   <button
                     onClick={() => setIsEditing(!isEditing)}
-                    className='px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 rounded-lg transition-colors'>
+                    className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  >
                     {isEditing ? 'Cancel' : 'Edit Profile'}
                   </button>
                 </div>
 
                 {/* Form */}
-                <div className='space-y-4'>
+                <div className="space-y-4">
                   {/* Name Field */}
                   <div>
-                    <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1'>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                       Full Name
                     </label>
                     {isEditing ? (
                       <input
-                        type='text'
+                        type="text"
                         value={formData.name}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -290,15 +295,15 @@ const UserProfile: React.FC = () => {
                             name: e.target.value,
                           }))
                         }
-                        className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
                       />
                     ) : (
-                      <div className='flex items-center space-x-2 py-2'>
+                      <div className="flex items-center space-x-2 py-2">
                         <User
                           size={16}
-                          className='text-slate-400 dark:text-slate-500'
+                          className="text-slate-400 dark:text-slate-500"
                         />
-                        <span className='text-slate-900 dark:text-slate-100'>
+                        <span className="text-slate-900 dark:text-slate-100">
                           {user.name}
                         </span>
                       </div>
@@ -307,12 +312,12 @@ const UserProfile: React.FC = () => {
 
                   {/* Email Field */}
                   <div>
-                    <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1'>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                       Email Address
                     </label>
                     {isEditing ? (
                       <input
-                        type='email'
+                        type="email"
                         value={formData.email}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -320,15 +325,15 @@ const UserProfile: React.FC = () => {
                             email: e.target.value,
                           }))
                         }
-                        className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
                       />
                     ) : (
-                      <div className='flex items-center space-x-2 py-2'>
+                      <div className="flex items-center space-x-2 py-2">
                         <Mail
                           size={16}
-                          className='text-slate-400 dark:text-slate-500'
+                          className="text-slate-400 dark:text-slate-500"
                         />
-                        <span className='text-slate-900 dark:text-slate-100'>
+                        <span className="text-slate-900 dark:text-slate-100">
                           {user.email}
                         </span>
                       </div>
@@ -337,18 +342,18 @@ const UserProfile: React.FC = () => {
 
                   {/* Role Field (Read-only) */}
                   <div>
-                    <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1'>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                       Role
                     </label>
-                    <div className='flex items-center space-x-2 py-2'>
+                    <div className="flex items-center space-x-2 py-2">
                       <Shield
                         size={16}
-                        className='text-slate-400 dark:text-slate-500'
+                        className="text-slate-400 dark:text-slate-500"
                       />
-                      <span className='text-slate-900 dark:text-slate-100'>
+                      <span className="text-slate-900 dark:text-slate-100">
                         {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                       </span>
-                      <span className='text-xs text-slate-500 dark:text-slate-400'>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
                         (Contact admin to change role)
                       </span>
                     </div>
@@ -356,16 +361,18 @@ const UserProfile: React.FC = () => {
 
                   {/* Action Buttons */}
                   {isEditing && (
-                    <div className='flex items-center space-x-3 pt-4'>
+                    <div className="flex items-center space-x-3 pt-4">
                       <button
                         onClick={handleSave}
-                        className='flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors'>
+                        className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors"
+                      >
                         <Save size={16} />
                         <span>Save Changes</span>
                       </button>
                       <button
                         onClick={handleCancel}
-                        className='flex items-center space-x-2 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 px-4 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors'>
+                        className="flex items-center space-x-2 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 px-4 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors"
+                      >
                         <X size={16} />
                         <span>Cancel</span>
                       </button>
@@ -378,21 +385,23 @@ const UserProfile: React.FC = () => {
 
           {/* Preferences Tab */}
           {activeTab === 'preferences' && (
-            <div className='space-y-6'>
+            <div className="space-y-6">
               {/* Action Buttons */}
-              <div className='flex items-center justify-between'>
-                <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                   Preferences
                 </h3>
-                <div className='flex gap-2'>
+                <div className="flex gap-2">
                   <button
                     onClick={expandAllSections}
-                    className='px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors'>
+                    className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
                     Expand All
                   </button>
                   <button
                     onClick={collapseAllSections}
-                    className='px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors'>
+                    className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
                     Collapse All
                   </button>
                   <button
@@ -406,12 +415,12 @@ const UserProfile: React.FC = () => {
                       } catch (error) {
                         console.error('Export error:', error)
                         showToast.error(
-                          'Failed to export preferences: ' +
-                            (error as Error).message
+                          `Failed to export preferences: ${(error as Error).message}`,
                         )
                       }
                     }}
-                    className='px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors'>
+                    className="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                  >
                     Export
                   </button>
                   <button
@@ -430,16 +439,16 @@ const UserProfile: React.FC = () => {
                               const success = await importPreferences(data)
                               if (success) {
                                 showToast.success(
-                                  'Preferences imported successfully! 📥'
+                                  'Preferences imported successfully! 📥',
                                 )
                               }
                             } catch (error) {
                               console.error(
                                 'Failed to import preferences:',
-                                error
+                                error,
                               )
                               showToast.error(
-                                'Failed to import preferences - invalid file format'
+                                'Failed to import preferences - invalid file format',
                               )
                             }
                           }
@@ -448,58 +457,61 @@ const UserProfile: React.FC = () => {
                       }
                       input.click()
                     }}
-                    className='px-3 py-1 text-sm bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800 transition-colors'>
+                    className="px-3 py-1 text-sm bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
+                  >
                     Import
                   </button>
                   <button
                     onClick={() => {
                       if (
                         confirm(
-                          'Are you sure you want to reset all preferences to defaults? This action cannot be undone.'
+                          'Are you sure you want to reset all preferences to defaults? This action cannot be undone.',
                         )
                       ) {
                         resetAllPreferences()
                       }
                     }}
-                    className='px-3 py-1 text-sm bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800 transition-colors'>
+                    className="px-3 py-1 text-sm bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
+                  >
                     Reset All
                   </button>
                 </div>
               </div>
               {/* Appearance & UI Section */}
-              <div className='bg-slate-50 dark:bg-gray-700/50 rounded-lg'>
+              <div className="bg-slate-50 dark:bg-gray-700/50 rounded-lg">
                 <button
                   onClick={() => toggleSection('appearance')}
-                  className='w-full flex items-center justify-between p-4 text-left hover:bg-slate-100 dark:hover:bg-gray-600/50 rounded-lg transition-colors'>
-                  <div className='flex items-center space-x-3'>
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-100 dark:hover:bg-gray-600/50 rounded-lg transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
                     <Palette
                       size={20}
-                      className='text-purple-600 dark:text-purple-400'
+                      className="text-purple-600 dark:text-purple-400"
                     />
                     <div>
-                      <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                         Appearance & UI
                       </h3>
-                      <p className='text-sm text-slate-500 dark:text-slate-400'>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
                         Customize the look and feel of your interface
                       </p>
                     </div>
                   </div>
                   {expandedSections.appearance ? (
-                    <ChevronUp size={20} className='text-slate-400' />
+                    <ChevronUp size={20} className="text-slate-400" />
                   ) : (
-                    <ChevronDown size={20} className='text-slate-400' />
+                    <ChevronDown size={20} className="text-slate-400" />
                   )}
                 </button>
 
                 {expandedSections.appearance && (
-                  <div className='px-4 pb-4 space-y-4 border-t border-slate-200 dark:border-gray-600'>
+                  <div className="px-4 pb-4 space-y-4 border-t border-slate-200 dark:border-gray-600">
                     {/* Theme */}
-                    <div className='pt-4'>
-                      <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3'>
+                    <div className="pt-4">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                         Theme
                       </label>
-                      <div className='grid grid-cols-3 gap-3'>
+                      <div className="grid grid-cols-3 gap-3">
                         {[
                           { value: 'light', label: 'Light', icon: Sun },
                           { value: 'dark', label: 'Dark', icon: Moon },
@@ -509,17 +521,18 @@ const UserProfile: React.FC = () => {
                             key={value}
                             onClick={() =>
                               handleThemeChange(
-                                value as 'light' | 'dark' | 'system'
+                                value as 'light' | 'dark' | 'system',
                               )
                             }
                             className={`p-3 rounded-lg border-2 transition-all ${
                               preferences.appearance.theme === value
                                 ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
                                 : 'border-slate-200 dark:border-gray-600 hover:border-slate-300 dark:hover:border-gray-500 text-slate-700 dark:text-slate-300'
-                            }`}>
-                            <div className='flex flex-col items-center space-y-2'>
+                            }`}
+                          >
+                            <div className="flex flex-col items-center space-y-2">
                               <Icon size={24} />
-                              <span className='text-sm font-medium'>
+                              <span className="text-sm font-medium">
                                 {label}
                               </span>
                             </div>
@@ -529,10 +542,10 @@ const UserProfile: React.FC = () => {
                     </div>
 
                     {/* Font Size */}
-                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
-                          <div className='flex items-center space-x-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                          <div className="flex items-center space-x-2">
                             <Type size={16} />
                             <span>Font Size</span>
                           </div>
@@ -543,20 +556,21 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'appearance',
                               'fontSize',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='small'>Small</option>
-                          <option value='medium'>Medium</option>
-                          <option value='large'>Large</option>
-                          <option value='extra-large'>Extra Large</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="small">Small</option>
+                          <option value="medium">Medium</option>
+                          <option value="large">Large</option>
+                          <option value="extra-large">Extra Large</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
-                          <div className='flex items-center space-x-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                          <div className="flex items-center space-x-2">
                             <BookOpen size={16} />
                             <span>Reading Width</span>
                           </div>
@@ -567,74 +581,75 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'appearance',
                               'readingWidth',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='narrow'>Narrow</option>
-                          <option value='medium'>Medium</option>
-                          <option value='wide'>Wide</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="narrow">Narrow</option>
+                          <option value="medium">Medium</option>
+                          <option value="wide">Wide</option>
                         </select>
                       </div>
                     </div>
 
                     {/* Toggles */}
-                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                      <div className='flex items-center justify-between'>
-                        <div className='flex items-center space-x-2'>
-                          <Activity size={16} className='text-slate-400' />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Activity size={16} className="text-slate-400" />
                           <div>
-                            <label className='text-sm font-medium text-slate-900 dark:text-slate-100'>
+                            <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
                               Animations
                             </label>
-                            <p className='text-xs text-slate-500 dark:text-slate-400'>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
                               Enable UI animations
                             </p>
                           </div>
                         </div>
-                        <label className='relative inline-flex items-center cursor-pointer'>
+                        <label className="relative inline-flex items-center cursor-pointer">
                           <input
-                            type='checkbox'
+                            type="checkbox"
                             checked={preferences.appearance.animations}
                             onChange={(e) =>
                               handlePreferenceChange(
                                 'appearance',
                                 'animations',
-                                e.target.checked
+                                e.target.checked,
                               )
                             }
-                            className='sr-only peer'
+                            className="sr-only peer"
                           />
-                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600" />
                         </label>
                       </div>
 
-                      <div className='flex items-center justify-between'>
-                        <div className='flex items-center space-x-2'>
-                          <Layout size={16} className='text-slate-400' />
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Layout size={16} className="text-slate-400" />
                           <div>
-                            <label className='text-sm font-medium text-slate-900 dark:text-slate-100'>
+                            <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
                               Compact Mode
                             </label>
-                            <p className='text-xs text-slate-500 dark:text-slate-400'>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
                               Denser UI layout
                             </p>
                           </div>
                         </div>
-                        <label className='relative inline-flex items-center cursor-pointer'>
+                        <label className="relative inline-flex items-center cursor-pointer">
                           <input
-                            type='checkbox'
+                            type="checkbox"
                             checked={preferences.appearance.compactMode}
                             onChange={(e) =>
                               handlePreferenceChange(
                                 'appearance',
                                 'compactMode',
-                                e.target.checked
+                                e.target.checked,
                               )
                             }
-                            className='sr-only peer'
+                            className="sr-only peer"
                           />
-                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600" />
                         </label>
                       </div>
                     </div>
@@ -643,37 +658,38 @@ const UserProfile: React.FC = () => {
               </div>
 
               {/* Content & Editor Section */}
-              <div className='bg-slate-50 dark:bg-gray-700/50 rounded-lg'>
+              <div className="bg-slate-50 dark:bg-gray-700/50 rounded-lg">
                 <button
                   onClick={() => toggleSection('content')}
-                  className='w-full flex items-center justify-between p-4 text-left hover:bg-slate-100 dark:hover:bg-gray-600/50 rounded-lg transition-colors'>
-                  <div className='flex items-center space-x-3'>
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-100 dark:hover:bg-gray-600/50 rounded-lg transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
                     <FileText
                       size={20}
-                      className='text-blue-600 dark:text-blue-400'
+                      className="text-blue-600 dark:text-blue-400"
                     />
                     <div>
-                      <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                         Content & Editor
                       </h3>
-                      <p className='text-sm text-slate-500 dark:text-slate-400'>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
                         Writing and content management preferences
                       </p>
                     </div>
                   </div>
                   {expandedSections.content ? (
-                    <ChevronUp size={20} className='text-slate-400' />
+                    <ChevronUp size={20} className="text-slate-400" />
                   ) : (
-                    <ChevronDown size={20} className='text-slate-400' />
+                    <ChevronDown size={20} className="text-slate-400" />
                   )}
                 </button>
 
                 {expandedSections.content && (
-                  <div className='px-4 pb-4 space-y-4 border-t border-slate-200 dark:border-gray-600'>
-                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4 pt-4'>
+                  <div className="px-4 pb-4 space-y-4 border-t border-slate-200 dark:border-gray-600">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
-                          <div className='flex items-center space-x-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                          <div className="flex items-center space-x-2">
                             <Edit size={16} />
                             <span>Default Editor</span>
                           </div>
@@ -684,19 +700,20 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'content',
                               'defaultEditor',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='rich-text'>Rich Text</option>
-                          <option value='markdown'>Markdown</option>
-                          <option value='html'>HTML</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="rich-text">Rich Text</option>
+                          <option value="markdown">Markdown</option>
+                          <option value="html">HTML</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
-                          <div className='flex items-center space-x-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                          <div className="flex items-center space-x-2">
                             <Timer size={16} />
                             <span>Auto-save Interval</span>
                           </div>
@@ -707,10 +724,11 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'content',
                               'autoSaveInterval',
-                              parseInt(e.target.value)
+                              Number.parseInt(e.target.value),
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
                           <option value={30}>30 seconds</option>
                           <option value={60}>1 minute</option>
                           <option value={120}>2 minutes</option>
@@ -719,8 +737,8 @@ const UserProfile: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
-                          <div className='flex items-center space-x-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                          <div className="flex items-center space-x-2">
                             <Layout size={16} />
                             <span>Posts Per Page</span>
                           </div>
@@ -731,10 +749,11 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'content',
                               'postsPerPage',
-                              parseInt(e.target.value)
+                              Number.parseInt(e.target.value),
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
                           <option value={5}>5 posts</option>
                           <option value={10}>10 posts</option>
                           <option value={25}>25 posts</option>
@@ -744,7 +763,7 @@ const UserProfile: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Default Post Status
                         </label>
                         <select
@@ -753,18 +772,19 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'content',
                               'defaultStatus',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='draft'>Draft</option>
-                          <option value='published'>Published</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="draft">Draft</option>
+                          <option value="published">Published</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
-                          <div className='flex items-center space-x-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                          <div className="flex items-center space-x-2">
                             <BookOpen size={16} />
                             <span>Reading Mode</span>
                           </div>
@@ -775,19 +795,20 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'content',
                               'readingMode',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='excerpts'>Show Excerpts</option>
-                          <option value='full'>Full Posts</option>
-                          <option value='cards'>Cards Only</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="excerpts">Show Excerpts</option>
+                          <option value="full">Full Posts</option>
+                          <option value="cards">Cards Only</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
-                          <div className='flex items-center space-x-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                          <div className="flex items-center space-x-2">
                             <Image size={16} />
                             <span>Image Quality</span>
                           </div>
@@ -798,14 +819,15 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'content',
                               'imageQuality',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='auto'>Auto</option>
-                          <option value='high'>High</option>
-                          <option value='medium'>Medium</option>
-                          <option value='low'>Low</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="auto">Auto</option>
+                          <option value="high">High</option>
+                          <option value="medium">Medium</option>
+                          <option value="low">Low</option>
                         </select>
                       </div>
                     </div>
@@ -814,36 +836,37 @@ const UserProfile: React.FC = () => {
               </div>
 
               {/* Notifications Section */}
-              <div className='bg-slate-50 dark:bg-gray-700/50 rounded-lg'>
+              <div className="bg-slate-50 dark:bg-gray-700/50 rounded-lg">
                 <button
                   onClick={() => toggleSection('notifications')}
-                  className='w-full flex items-center justify-between p-4 text-left hover:bg-slate-100 dark:hover:bg-gray-600/50 rounded-lg transition-colors'>
-                  <div className='flex items-center space-x-3'>
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-100 dark:hover:bg-gray-600/50 rounded-lg transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
                     <Bell
                       size={20}
-                      className='text-green-600 dark:text-green-400'
+                      className="text-green-600 dark:text-green-400"
                     />
                     <div>
-                      <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                         Notifications
                       </h3>
-                      <p className='text-sm text-slate-500 dark:text-slate-400'>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
                         Manage how and when you receive notifications
                       </p>
                     </div>
                   </div>
                   {expandedSections.notifications ? (
-                    <ChevronUp size={20} className='text-slate-400' />
+                    <ChevronUp size={20} className="text-slate-400" />
                   ) : (
-                    <ChevronDown size={20} className='text-slate-400' />
+                    <ChevronDown size={20} className="text-slate-400" />
                   )}
                 </button>
 
                 {expandedSections.notifications && (
-                  <div className='px-4 pb-4 space-y-4 border-t border-slate-200 dark:border-gray-600 pt-4'>
-                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                  <div className="px-4 pb-4 space-y-4 border-t border-slate-200 dark:border-gray-600 pt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           New Comments
                         </label>
                         <select
@@ -851,15 +874,16 @@ const UserProfile: React.FC = () => {
                           onChange={(e) =>
                             handleNotificationChange('comments', e.target.value)
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='email'>Email</option>
-                          <option value='browser'>Browser</option>
-                          <option value='none'>None</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="email">Email</option>
+                          <option value="browser">Browser</option>
+                          <option value="none">None</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Post Mentions
                         </label>
                         <select
@@ -867,15 +891,16 @@ const UserProfile: React.FC = () => {
                           onChange={(e) =>
                             handleNotificationChange('mentions', e.target.value)
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='email'>Email</option>
-                          <option value='browser'>Browser</option>
-                          <option value='none'>None</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="email">Email</option>
+                          <option value="browser">Browser</option>
+                          <option value="none">None</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           System Updates
                         </label>
                         <select
@@ -883,18 +908,19 @@ const UserProfile: React.FC = () => {
                           onChange={(e) =>
                             handleNotificationChange(
                               'systemUpdates',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='email'>Email</option>
-                          <option value='browser'>Browser</option>
-                          <option value='none'>None</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="email">Email</option>
+                          <option value="browser">Browser</option>
+                          <option value="none">None</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Notification Timing
                         </label>
                         <select
@@ -902,37 +928,38 @@ const UserProfile: React.FC = () => {
                           onChange={(e) =>
                             handleNotificationChange('timing', e.target.value)
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='immediate'>Immediate</option>
-                          <option value='hourly'>Hourly</option>
-                          <option value='daily'>Daily</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="immediate">Immediate</option>
+                          <option value="hourly">Hourly</option>
+                          <option value="daily">Daily</option>
                         </select>
                       </div>
                     </div>
 
-                    <div className='pt-2'>
-                      <div className='flex items-center justify-between'>
+                    <div className="pt-2">
+                      <div className="flex items-center justify-between">
                         <div>
-                          <label className='text-sm font-medium text-slate-900 dark:text-slate-100'>
+                          <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
                             Weekly Digest
                           </label>
-                          <p className='text-xs text-slate-500 dark:text-slate-400'>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
                             Receive a weekly summary email
                           </p>
                         </div>
-                        <label className='relative inline-flex items-center cursor-pointer'>
+                        <label className="relative inline-flex items-center cursor-pointer">
                           <input
-                            type='checkbox'
+                            type="checkbox"
                             checked={preferences.notifications.weeklyDigest}
                             onChange={(e) =>
                               handleNotificationChange(
                                 'weeklyDigest',
-                                e.target.checked
+                                e.target.checked,
                               )
                             }
-                            className='sr-only peer'
+                            className="sr-only peer"
                           />
-                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600" />
                         </label>
                       </div>
                     </div>
@@ -941,36 +968,37 @@ const UserProfile: React.FC = () => {
               </div>
 
               {/* Dashboard & Analytics Section */}
-              <div className='bg-slate-50 dark:bg-gray-700/50 rounded-lg'>
+              <div className="bg-slate-50 dark:bg-gray-700/50 rounded-lg">
                 <button
                   onClick={() => toggleSection('dashboard')}
-                  className='w-full flex items-center justify-between p-4 text-left hover:bg-slate-100 dark:hover:bg-gray-600/50 rounded-lg transition-colors'>
-                  <div className='flex items-center space-x-3'>
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-100 dark:hover:bg-gray-600/50 rounded-lg transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
                     <TrendingUp
                       size={20}
-                      className='text-orange-600 dark:text-orange-400'
+                      className="text-orange-600 dark:text-orange-400"
                     />
                     <div>
-                      <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                         Dashboard & Analytics
                       </h3>
-                      <p className='text-sm text-slate-500 dark:text-slate-400'>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
                         Customize your dashboard and analytics preferences
                       </p>
                     </div>
                   </div>
                   {expandedSections.dashboard ? (
-                    <ChevronUp size={20} className='text-slate-400' />
+                    <ChevronUp size={20} className="text-slate-400" />
                   ) : (
-                    <ChevronDown size={20} className='text-slate-400' />
+                    <ChevronDown size={20} className="text-slate-400" />
                   )}
                 </button>
 
                 {expandedSections.dashboard && (
-                  <div className='px-4 pb-4 space-y-4 border-t border-slate-200 dark:border-gray-600'>
-                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4 pt-4'>
+                  <div className="px-4 pb-4 space-y-4 border-t border-slate-200 dark:border-gray-600">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Default Dashboard View
                         </label>
                         <select
@@ -979,21 +1007,22 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'dashboard',
                               'defaultView',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='overview'>Overview</option>
-                          <option value='posts'>Posts</option>
-                          <option value='analytics'>Analytics</option>
-                          <option value='recent-activity'>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="overview">Overview</option>
+                          <option value="posts">Posts</option>
+                          <option value="analytics">Analytics</option>
+                          <option value="recent-activity">
                             Recent Activity
                           </option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Analytics Detail Level
                         </label>
                         <select
@@ -1002,18 +1031,19 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'dashboard',
                               'analyticsLevel',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='basic'>Basic</option>
-                          <option value='advanced'>Advanced</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="basic">Basic</option>
+                          <option value="advanced">Advanced</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
-                          <div className='flex items-center space-x-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                          <div className="flex items-center space-x-2">
                             <BarChart size={16} />
                             <span>Chart Type Preference</span>
                           </div>
@@ -1024,18 +1054,19 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'dashboard',
                               'chartType',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='line'>Line Charts</option>
-                          <option value='bar'>Bar Charts</option>
-                          <option value='pie'>Pie Charts</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="line">Line Charts</option>
+                          <option value="bar">Bar Charts</option>
+                          <option value="pie">Pie Charts</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Date Range Default
                         </label>
                         <select
@@ -1044,41 +1075,42 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'dashboard',
                               'dateRange',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='7-days'>Last 7 days</option>
-                          <option value='30-days'>Last 30 days</option>
-                          <option value='90-days'>Last 90 days</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="7-days">Last 7 days</option>
+                          <option value="30-days">Last 30 days</option>
+                          <option value="90-days">Last 90 days</option>
                         </select>
                       </div>
                     </div>
 
-                    <div className='pt-2'>
-                      <div className='flex items-center justify-between'>
+                    <div className="pt-2">
+                      <div className="flex items-center justify-between">
                         <div>
-                          <label className='text-sm font-medium text-slate-900 dark:text-slate-100'>
+                          <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
                             Show Admin Metrics
                           </label>
-                          <p className='text-xs text-slate-500 dark:text-slate-400'>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
                             Display advanced metrics for multi-author blogs
                           </p>
                         </div>
-                        <label className='relative inline-flex items-center cursor-pointer'>
+                        <label className="relative inline-flex items-center cursor-pointer">
                           <input
-                            type='checkbox'
+                            type="checkbox"
                             checked={preferences.dashboard.showAdminMetrics}
                             onChange={(e) =>
                               handlePreferenceChange(
                                 'dashboard',
                                 'showAdminMetrics',
-                                e.target.checked
+                                e.target.checked,
                               )
                             }
-                            className='sr-only peer'
+                            className="sr-only peer"
                           />
-                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600" />
                         </label>
                       </div>
                     </div>
@@ -1087,37 +1119,38 @@ const UserProfile: React.FC = () => {
               </div>
 
               {/* Localization Section */}
-              <div className='bg-slate-50 dark:bg-gray-700/50 rounded-lg'>
+              <div className="bg-slate-50 dark:bg-gray-700/50 rounded-lg">
                 <button
                   onClick={() => toggleSection('localization')}
-                  className='w-full flex items-center justify-between p-4 text-left hover:bg-slate-100 dark:hover:bg-gray-600/50 rounded-lg transition-colors'>
-                  <div className='flex items-center space-x-3'>
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-100 dark:hover:bg-gray-600/50 rounded-lg transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
                     <Globe
                       size={20}
-                      className='text-indigo-600 dark:text-indigo-400'
+                      className="text-indigo-600 dark:text-indigo-400"
                     />
                     <div>
-                      <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                         Localization & Format
                       </h3>
-                      <p className='text-sm text-slate-500 dark:text-slate-400'>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
                         Language, timezone, and formatting preferences
                       </p>
                     </div>
                   </div>
                   {expandedSections.localization ? (
-                    <ChevronUp size={20} className='text-slate-400' />
+                    <ChevronUp size={20} className="text-slate-400" />
                   ) : (
-                    <ChevronDown size={20} className='text-slate-400' />
+                    <ChevronDown size={20} className="text-slate-400" />
                   )}
                 </button>
 
                 {expandedSections.localization && (
-                  <div className='px-4 pb-4 space-y-4 border-t border-slate-200 dark:border-gray-600'>
-                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4 pt-4'>
+                  <div className="px-4 pb-4 space-y-4 border-t border-slate-200 dark:border-gray-600">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
-                          <div className='flex items-center space-x-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                          <div className="flex items-center space-x-2">
                             <Globe size={16} />
                             <span>Language</span>
                           </div>
@@ -1128,20 +1161,21 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'localization',
                               'language',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='en'>English</option>
-                          <option value='es'>Español</option>
-                          <option value='fr'>Français</option>
-                          <option value='de'>Deutsch</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="en">English</option>
+                          <option value="es">Español</option>
+                          <option value="fr">Français</option>
+                          <option value="de">Deutsch</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
-                          <div className='flex items-center space-x-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                          <div className="flex items-center space-x-2">
                             <Clock size={16} />
                             <span>Timezone</span>
                           </div>
@@ -1152,23 +1186,24 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'localization',
                               'timezone',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='auto'>Auto-detect</option>
-                          <option value='UTC'>UTC</option>
-                          <option value='America/New_York'>Eastern Time</option>
-                          <option value='America/Chicago'>Central Time</option>
-                          <option value='America/Denver'>Mountain Time</option>
-                          <option value='America/Los_Angeles'>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="auto">Auto-detect</option>
+                          <option value="UTC">UTC</option>
+                          <option value="America/New_York">Eastern Time</option>
+                          <option value="America/Chicago">Central Time</option>
+                          <option value="America/Denver">Mountain Time</option>
+                          <option value="America/Los_Angeles">
                             Pacific Time
                           </option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Date Format
                         </label>
                         <select
@@ -1177,18 +1212,19 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'localization',
                               'dateFormat',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='MM/DD/YYYY'>MM/DD/YYYY</option>
-                          <option value='DD/MM/YYYY'>DD/MM/YYYY</option>
-                          <option value='YYYY-MM-DD'>YYYY-MM-DD</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                          <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                          <option value="YYYY-MM-DD">YYYY-MM-DD</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Time Format
                         </label>
                         <select
@@ -1197,17 +1233,18 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'localization',
                               'timeFormat',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='12-hour'>12-hour</option>
-                          <option value='24-hour'>24-hour</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="12-hour">12-hour</option>
+                          <option value="24-hour">24-hour</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Number Format
                         </label>
                         <select
@@ -1216,13 +1253,14 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'localization',
                               'numberFormat',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='1,000.00'>1,000.00</option>
-                          <option value='1.000,00'>1.000,00</option>
-                          <option value='1 000,00'>1 000,00</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="1,000.00">1,000.00</option>
+                          <option value="1.000,00">1.000,00</option>
+                          <option value="1 000,00">1 000,00</option>
                         </select>
                       </div>
                     </div>
@@ -1231,36 +1269,37 @@ const UserProfile: React.FC = () => {
               </div>
 
               {/* Privacy & Security Section */}
-              <div className='bg-slate-50 dark:bg-gray-700/50 rounded-lg'>
+              <div className="bg-slate-50 dark:bg-gray-700/50 rounded-lg">
                 <button
                   onClick={() => toggleSection('privacy')}
-                  className='w-full flex items-center justify-between p-4 text-left hover:bg-slate-100 dark:hover:bg-gray-600/50 rounded-lg transition-colors'>
-                  <div className='flex items-center space-x-3'>
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-100 dark:hover:bg-gray-600/50 rounded-lg transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
                     <Lock
                       size={20}
-                      className='text-red-600 dark:text-red-400'
+                      className="text-red-600 dark:text-red-400"
                     />
                     <div>
-                      <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                         Privacy & Security
                       </h3>
-                      <p className='text-sm text-slate-500 dark:text-slate-400'>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
                         Control your privacy and security settings
                       </p>
                     </div>
                   </div>
                   {expandedSections.privacy ? (
-                    <ChevronUp size={20} className='text-slate-400' />
+                    <ChevronUp size={20} className="text-slate-400" />
                   ) : (
-                    <ChevronDown size={20} className='text-slate-400' />
+                    <ChevronDown size={20} className="text-slate-400" />
                   )}
                 </button>
 
                 {expandedSections.privacy && (
-                  <div className='px-4 pb-4 space-y-4 border-t border-slate-200 dark:border-gray-600'>
-                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4 pt-4'>
+                  <div className="px-4 pb-4 space-y-4 border-t border-slate-200 dark:border-gray-600">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Profile Visibility
                         </label>
                         <select
@@ -1269,18 +1308,19 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'privacy',
                               'profileVisibility',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='public'>Public</option>
-                          <option value='private'>Private</option>
-                          <option value='contacts'>Contacts Only</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="public">Public</option>
+                          <option value="private">Private</option>
+                          <option value="contacts">Contacts Only</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Session Timeout
                         </label>
                         <select
@@ -1289,68 +1329,69 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'privacy',
                               'sessionTimeout',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='30min'>30 minutes</option>
-                          <option value='1hr'>1 hour</option>
-                          <option value='4hr'>4 hours</option>
-                          <option value='never'>Never</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="30min">30 minutes</option>
+                          <option value="1hr">1 hour</option>
+                          <option value="4hr">4 hours</option>
+                          <option value="never">Never</option>
                         </select>
                       </div>
                     </div>
 
-                    <div className='space-y-3 pt-2'>
-                      <div className='flex items-center justify-between'>
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center justify-between">
                         <div>
-                          <label className='text-sm font-medium text-slate-900 dark:text-slate-100'>
+                          <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
                             Show Online Status
                           </label>
-                          <p className='text-xs text-slate-500 dark:text-slate-400'>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
                             Let others see when you're online
                           </p>
                         </div>
-                        <label className='relative inline-flex items-center cursor-pointer'>
+                        <label className="relative inline-flex items-center cursor-pointer">
                           <input
-                            type='checkbox'
+                            type="checkbox"
                             checked={preferences.privacy.showOnlineStatus}
                             onChange={(e) =>
                               handlePreferenceChange(
                                 'privacy',
                                 'showOnlineStatus',
-                                e.target.checked
+                                e.target.checked,
                               )
                             }
-                            className='sr-only peer'
+                            className="sr-only peer"
                           />
-                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600" />
                         </label>
                       </div>
 
-                      <div className='flex items-center justify-between'>
+                      <div className="flex items-center justify-between">
                         <div>
-                          <label className='text-sm font-medium text-slate-900 dark:text-slate-100'>
+                          <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
                             Activity Tracking
                           </label>
-                          <p className='text-xs text-slate-500 dark:text-slate-400'>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
                             Enable analytics tracking for better insights
                           </p>
                         </div>
-                        <label className='relative inline-flex items-center cursor-pointer'>
+                        <label className="relative inline-flex items-center cursor-pointer">
                           <input
-                            type='checkbox'
+                            type="checkbox"
                             checked={preferences.privacy.activityTracking}
                             onChange={(e) =>
                               handlePreferenceChange(
                                 'privacy',
                                 'activityTracking',
-                                e.target.checked
+                                e.target.checked,
                               )
                             }
-                            className='sr-only peer'
+                            className="sr-only peer"
                           />
-                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600" />
                         </label>
                       </div>
                     </div>
@@ -1359,37 +1400,38 @@ const UserProfile: React.FC = () => {
               </div>
 
               {/* Accessibility Section */}
-              <div className='bg-slate-50 dark:bg-gray-700/50 rounded-lg'>
+              <div className="bg-slate-50 dark:bg-gray-700/50 rounded-lg">
                 <button
                   onClick={() => toggleSection('accessibility')}
-                  className='w-full flex items-center justify-between p-4 text-left hover:bg-slate-100 dark:hover:bg-gray-600/50 rounded-lg transition-colors'>
-                  <div className='flex items-center space-x-3'>
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-100 dark:hover:bg-gray-600/50 rounded-lg transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
                     <Eye
                       size={20}
-                      className='text-teal-600 dark:text-teal-400'
+                      className="text-teal-600 dark:text-teal-400"
                     />
                     <div>
-                      <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                         Accessibility
                       </h3>
-                      <p className='text-sm text-slate-500 dark:text-slate-400'>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
                         Mobile and accessibility preferences
                       </p>
                     </div>
                   </div>
                   {expandedSections.accessibility ? (
-                    <ChevronUp size={20} className='text-slate-400' />
+                    <ChevronUp size={20} className="text-slate-400" />
                   ) : (
-                    <ChevronDown size={20} className='text-slate-400' />
+                    <ChevronDown size={20} className="text-slate-400" />
                   )}
                 </button>
 
                 {expandedSections.accessibility && (
-                  <div className='px-4 pb-4 space-y-4 border-t border-slate-200 dark:border-gray-600'>
-                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4 pt-4'>
+                  <div className="px-4 pb-4 space-y-4 border-t border-slate-200 dark:border-gray-600">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                       <div>
-                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2'>
-                          <div className='flex items-center space-x-2'>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                          <div className="flex items-center space-x-2">
                             <Smartphone size={16} />
                             <span>Mobile Editor</span>
                           </div>
@@ -1400,118 +1442,119 @@ const UserProfile: React.FC = () => {
                             handlePreferenceChange(
                               'accessibility',
                               'mobileEditor',
-                              e.target.value
+                              e.target.value,
                             )
                           }
-                          className='w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700'>
-                          <option value='simplified'>Simplified</option>
-                          <option value='full'>Full</option>
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 dark:text-slate-100 bg-white dark:bg-gray-700"
+                        >
+                          <option value="simplified">Simplified</option>
+                          <option value="full">Full</option>
                         </select>
                       </div>
                     </div>
 
-                    <div className='space-y-3 pt-2'>
-                      <div className='flex items-center justify-between'>
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center justify-between">
                         <div>
-                          <label className='text-sm font-medium text-slate-900 dark:text-slate-100'>
+                          <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
                             Touch Gestures
                           </label>
-                          <p className='text-xs text-slate-500 dark:text-slate-400'>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
                             Enable touch gestures for mobile devices
                           </p>
                         </div>
-                        <label className='relative inline-flex items-center cursor-pointer'>
+                        <label className="relative inline-flex items-center cursor-pointer">
                           <input
-                            type='checkbox'
+                            type="checkbox"
                             checked={preferences.accessibility.touchGestures}
                             onChange={(e) =>
                               handlePreferenceChange(
                                 'accessibility',
                                 'touchGestures',
-                                e.target.checked
+                                e.target.checked,
                               )
                             }
-                            className='sr-only peer'
+                            className="sr-only peer"
                           />
-                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600" />
                         </label>
                       </div>
 
-                      <div className='flex items-center justify-between'>
+                      <div className="flex items-center justify-between">
                         <div>
-                          <label className='text-sm font-medium text-slate-900 dark:text-slate-100'>
+                          <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
                             High Contrast
                           </label>
-                          <p className='text-xs text-slate-500 dark:text-slate-400'>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
                             Increase contrast for better visibility
                           </p>
                         </div>
-                        <label className='relative inline-flex items-center cursor-pointer'>
+                        <label className="relative inline-flex items-center cursor-pointer">
                           <input
-                            type='checkbox'
+                            type="checkbox"
                             checked={preferences.accessibility.highContrast}
                             onChange={(e) =>
                               handlePreferenceChange(
                                 'accessibility',
                                 'highContrast',
-                                e.target.checked
+                                e.target.checked,
                               )
                             }
-                            className='sr-only peer'
+                            className="sr-only peer"
                           />
-                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600" />
                         </label>
                       </div>
 
-                      <div className='flex items-center justify-between'>
+                      <div className="flex items-center justify-between">
                         <div>
-                          <label className='text-sm font-medium text-slate-900 dark:text-slate-100'>
+                          <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
                             Screen Reader Support
                           </label>
-                          <p className='text-xs text-slate-500 dark:text-slate-400'>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
                             Enhanced support for screen readers
                           </p>
                         </div>
-                        <label className='relative inline-flex items-center cursor-pointer'>
+                        <label className="relative inline-flex items-center cursor-pointer">
                           <input
-                            type='checkbox'
+                            type="checkbox"
                             checked={preferences.accessibility.screenReader}
                             onChange={(e) =>
                               handlePreferenceChange(
                                 'accessibility',
                                 'screenReader',
-                                e.target.checked
+                                e.target.checked,
                               )
                             }
-                            className='sr-only peer'
+                            className="sr-only peer"
                           />
-                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600" />
                         </label>
                       </div>
 
-                      <div className='flex items-center justify-between'>
+                      <div className="flex items-center justify-between">
                         <div>
-                          <label className='text-sm font-medium text-slate-900 dark:text-slate-100'>
+                          <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
                             Keyboard Navigation
                           </label>
-                          <p className='text-xs text-slate-500 dark:text-slate-400'>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
                             Enhanced keyboard navigation support
                           </p>
                         </div>
-                        <label className='relative inline-flex items-center cursor-pointer'>
+                        <label className="relative inline-flex items-center cursor-pointer">
                           <input
-                            type='checkbox'
+                            type="checkbox"
                             checked={preferences.accessibility.keyboardNav}
                             onChange={(e) =>
                               handlePreferenceChange(
                                 'accessibility',
                                 'keyboardNav',
-                                e.target.checked
+                                e.target.checked,
                               )
                             }
-                            className='sr-only peer'
+                            className="sr-only peer"
                           />
-                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                          <div className="w-11 h-6 bg-slate-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600" />
                         </label>
                       </div>
                     </div>
@@ -1520,7 +1563,7 @@ const UserProfile: React.FC = () => {
               </div>
 
               {/* Save Preferences Button */}
-              <div className='flex justify-end pt-4 border-t border-slate-200 dark:border-gray-700'>
+              <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-gray-700">
                 <button
                   onClick={() => {
                     const toastId = adminToast.saving()
@@ -1532,7 +1575,8 @@ const UserProfile: React.FC = () => {
                       console.log('Saving preferences:', preferences)
                     }, 800)
                   }}
-                  className='flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-2 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors'>
+                  className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-2 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors"
+                >
                   <Save size={16} />
                   <span>Save Preferences</span>
                 </button>

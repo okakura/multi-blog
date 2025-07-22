@@ -1,4 +1,5 @@
 // Public Blog API service for frontend integration
+import { API_CONFIG, buildApiUrl } from '../config/dev'
 
 export interface BlogPost {
   id: number
@@ -33,8 +34,6 @@ export interface BlogHomeResponse {
 }
 
 class BlogApiService {
-  private baseUrl = 'http://localhost:3000'
-
   // Helper to get headers with domain mapping
   private getHeaders(domain?: string): HeadersInit {
     // Map frontend domain names to backend domain names
@@ -55,9 +54,12 @@ class BlogApiService {
   // Get homepage data (recent posts)
   async getHomePage(domain?: string): Promise<BlogHomeResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/`, {
-        headers: this.getHeaders(domain),
-      })
+      const response = await fetch(
+        buildApiUrl(API_CONFIG.ENDPOINTS.BLOG.HOME),
+        {
+          headers: this.getHeaders(domain),
+        }
+      )
 
       if (!response.ok) {
         throw new Error(`Failed to fetch homepage: ${response.statusText}`)
@@ -87,9 +89,16 @@ class BlogApiService {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/posts?${params}`, {
-        headers: this.getHeaders(domain),
-      })
+      const response = await fetch(
+        buildApiUrl(API_CONFIG.ENDPOINTS.BLOG.POSTS, {
+          page: page.toString(),
+          per_page: limit.toString(),
+          ...(category && { category }),
+        }),
+        {
+          headers: this.getHeaders(domain),
+        }
+      )
 
       if (!response.ok) {
         throw new Error(`Failed to fetch posts: ${response.statusText}`)
@@ -105,9 +114,12 @@ class BlogApiService {
   // Get single post by slug
   async getPost(slug: string, domain?: string): Promise<BlogPost> {
     try {
-      const response = await fetch(`${this.baseUrl}/posts/${slug}`, {
-        headers: this.getHeaders(domain),
-      })
+      const response = await fetch(
+        buildApiUrl(`${API_CONFIG.ENDPOINTS.BLOG.POST_BY_SLUG}/${slug}`),
+        {
+          headers: this.getHeaders(domain),
+        }
+      )
 
       if (!response.ok) {
         throw new Error(`Failed to fetch post: ${response.statusText}`)
@@ -126,9 +138,12 @@ class BlogApiService {
     domain?: string
   ): Promise<BlogPostsResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/category/${category}`, {
-        headers: this.getHeaders(domain),
-      })
+      const response = await fetch(
+        buildApiUrl(`${API_CONFIG.ENDPOINTS.BLOG.CATEGORY}/${category}`),
+        {
+          headers: this.getHeaders(domain),
+        }
+      )
 
       if (!response.ok) {
         throw new Error(
@@ -149,15 +164,16 @@ class BlogApiService {
     page = 1,
     domain?: string
   ): Promise<BlogPostsResponse> {
-    const params = new URLSearchParams({
-      q: query,
-      page: page.toString(),
-    })
-
     try {
-      const response = await fetch(`${this.baseUrl}/search?${params}`, {
-        headers: this.getHeaders(domain),
-      })
+      const response = await fetch(
+        buildApiUrl(API_CONFIG.ENDPOINTS.BLOG.SEARCH, {
+          q: query,
+          page: page.toString(),
+        }),
+        {
+          headers: this.getHeaders(domain),
+        }
+      )
 
       if (!response.ok) {
         throw new Error(`Failed to search posts: ${response.statusText}`)

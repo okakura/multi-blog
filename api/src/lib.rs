@@ -183,7 +183,7 @@ pub async fn analytics_middleware(
 
 // Middleware for admin authentication (JWT or session-based)
 pub async fn auth_middleware(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     mut request: Request,
     next: Next,
@@ -206,11 +206,11 @@ pub async fn auth_middleware(
         }
     };
 
-    // Validate JWT and get user (simplified)
-    let (user_id, email, name, role) = match validate_jwt_token(token) {
-        Ok(user_data) => {
-            println!("✅ Auth middleware: Token valid for user: {}", user_data.1);
-            user_data
+    // Validate JWT and get user claims
+    let claims = match crate::handlers::auth::validate_jwt_token(token) {
+        Ok(claims) => {
+            println!("✅ Auth middleware: Token valid for user: {}", claims.sub);
+            claims
         }
         Err(e) => {
             println!("❌ Auth middleware: Token validation failed: {}", e);
@@ -218,13 +218,54 @@ pub async fn auth_middleware(
         }
     };
 
-    // Create user context with real data from token
+    // Get user and domain permissions from database
+    let user = sqlx::query!(
+        "SELECT id, email, name, role FROM users WHERE id = $1 AND email = $2",
+        claims.user_id,
+        claims.sub
+    )
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        println!("❌ Auth middleware: Database error: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let user = match user {
+        Some(u) => u,
+        None => {
+            println!("❌ Auth middleware: User not found in database");
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+    };
+
+    // Get domain permissions
+    let permissions_rows = sqlx::query!(
+        "SELECT domain_id, role FROM user_domain_permissions WHERE user_id = $1",
+        user.id
+    )
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        println!("❌ Auth middleware: Error fetching permissions: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let domain_permissions = permissions_rows
+        .into_iter()
+        .map(|row| DomainPermission {
+            domain_id: row.domain_id.unwrap_or(0),
+            role: row.role,
+        })
+        .collect();
+
+    // Create user context with real data from database
     let user_context = UserContext {
-        id: user_id,
-        email,
-        name,
-        role,
-        domain_permissions: vec![],
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role.unwrap_or_default(),
+        domain_permissions,
     };
 
     println!(
@@ -234,29 +275,4 @@ pub async fn auth_middleware(
     request.extensions_mut().insert(user_context);
 
     Ok(next.run(request).await)
-}
-
-// Helper function to validate JWT (implement with your preferred JWT library)
-fn validate_jwt_token(
-    token: &str,
-) -> Result<(i32, String, String, String), Box<dyn std::error::Error>> {
-    // TODO: Implement proper JWT validation
-    // For now, extract email from token format used by auth service
-    if !token.starts_with("auth_token_") {
-        return Err("Invalid token format".into());
-    }
-
-    let email = token
-        .strip_prefix("auth_token_")
-        .and_then(|t| t.split('_').next())
-        .unwrap_or("");
-
-    let (id, name, role) = match email {
-        "admin@multi-blog.com" => (1, "Josh Gautier", "super_admin"),
-        "editor@multi-blog.com" => (2, "Jane Smith", "editor"),
-        "viewer@multi-blog.com" => (3, "John Doe", "viewer"),
-        _ => return Err("Invalid user".into()),
-    };
-
-    Ok((id, email.to_string(), name.to_string(), role.to_string()))
 }

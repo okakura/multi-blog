@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
-    routing::{get, put},
+    routing::{delete, get, post, put},
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -21,6 +21,11 @@ impl super::HandlerModule for AdminModule {
             .route(
                 "/posts/{id}",
                 get(get_admin_post).put(update_post).delete(delete_post),
+            )
+            .route("/users", get(list_users).post(create_user))
+            .route(
+                "/users/{id}",
+                get(get_user).put(update_user).delete(delete_user),
             )
             .route("/analytics", get(get_analytics_summary))
             .route("/analytics/overview", get(get_admin_analytics_overview))
@@ -86,7 +91,7 @@ fn check_domain_permission(
     domain_id: i32,
     required_role: &str,
 ) -> Result<(), StatusCode> {
-    if user.role == "super_admin" {
+    if user.role == "platform_admin" {
         return Ok(());
     }
 
@@ -104,11 +109,64 @@ fn check_domain_permission(
     }
 }
 
+#[derive(Deserialize)]
+struct AdminPostsQuery {
+    domain: Option<String>,
+}
+
 async fn list_admin_posts(
     Extension(domain): Extension<DomainContext>,
     Extension(user): Extension<UserContext>,
     State(state): State<Arc<AppState>>,
+    Query(query): Query<AdminPostsQuery>,
 ) -> Result<Json<Vec<AdminPostResponse>>, StatusCode> {
+    // If domain=all is requested, fetch from all domains the user has access to
+    if query.domain.as_deref() == Some("all") {
+        // Get all domains the user has access to
+        let user_domains = sqlx::query!(
+            r#"
+            SELECT domain_id as id
+            FROM user_domain_permissions
+            WHERE user_id = $1
+            "#,
+            user.id
+        )
+        .fetch_all(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        if user_domains.is_empty() {
+            return Ok(Json(vec![]));
+        }
+
+        let domain_ids: Vec<i32> = user_domains.into_iter().filter_map(|d| d.id).collect();
+
+        // Build dynamic query for multiple domains
+        let placeholders: Vec<String> = (1..=domain_ids.len()).map(|i| format!("${}", i)).collect();
+        let query_str = format!(
+            r#"
+            SELECT id, title, content, author, category, slug, status, created_at, updated_at
+            FROM posts 
+            WHERE domain_id IN ({})
+            ORDER BY updated_at DESC
+            "#,
+            placeholders.join(", ")
+        );
+
+        let mut query_builder = sqlx::query_as::<_, AdminPostResponse>(&query_str);
+        for domain_id in domain_ids {
+            query_builder = query_builder.bind(domain_id);
+        }
+
+        let posts = query_builder
+            .fetch_all(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        return Ok(Json(posts));
+    }
+
+    // Default behavior: single domain
     check_domain_permission(&user, domain.id, "viewer")?;
 
     let posts = sqlx::query_as!(
@@ -480,7 +538,7 @@ async fn list_domains(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<DomainResponse>>, StatusCode> {
     // Only super admins can list all domains
-    if user.role != "super_admin" {
+    if user.role != "platform_admin" {
         return Err(StatusCode::FORBIDDEN);
     }
 
@@ -518,7 +576,7 @@ async fn get_domain(
     Path(id): Path<i32>,
 ) -> Result<Json<DomainResponse>, StatusCode> {
     // Only super admins can view any domain, or users with permissions for this specific domain
-    if user.role != "super_admin" {
+    if user.role != "platform_admin" {
         let has_permission = user.domain_permissions.iter().any(|p| p.domain_id == id);
         if !has_permission {
             return Err(StatusCode::FORBIDDEN);
@@ -561,7 +619,7 @@ async fn create_domain(
     Json(payload): Json<CreateDomainRequest>,
 ) -> Result<Json<DomainResponse>, StatusCode> {
     // Only super admins can create domains
-    if user.role != "super_admin" {
+    if user.role != "platform_admin" {
         return Err(StatusCode::FORBIDDEN);
     }
 
@@ -621,7 +679,7 @@ async fn update_domain(
     Json(payload): Json<UpdateDomainRequest>,
 ) -> Result<Json<DomainResponse>, StatusCode> {
     // Only super admins can update domains
-    if user.role != "super_admin" {
+    if user.role != "platform_admin" {
         return Err(StatusCode::FORBIDDEN);
     }
 
@@ -732,7 +790,7 @@ async fn delete_domain(
     Path(id): Path<i32>,
 ) -> Result<StatusCode, StatusCode> {
     // Only super admins can delete domains
-    if user.role != "super_admin" {
+    if user.role != "platform_admin" {
         return Err(StatusCode::FORBIDDEN);
     }
 
@@ -912,8 +970,8 @@ async fn get_admin_analytics_overview(
     State(state): State<Arc<AppState>>,
     Query(query): Query<AdminAnalyticsQuery>,
 ) -> Result<Json<AdminAnalyticsOverview>, StatusCode> {
-    // Only super_admin can view cross-domain analytics
-    if user.role != "super_admin" {
+    // Only platform_admin can view cross-domain analytics
+    if user.role != "platform_admin" {
         return Err(StatusCode::FORBIDDEN);
     }
 
@@ -1088,7 +1146,7 @@ async fn get_admin_traffic_stats(
     State(state): State<Arc<AppState>>,
     Query(query): Query<AdminAnalyticsQuery>,
 ) -> Result<Json<AdminTrafficResponse>, StatusCode> {
-    if user.role != "super_admin" {
+    if user.role != "platform_admin" {
         return Err(StatusCode::FORBIDDEN);
     }
 
@@ -1176,7 +1234,7 @@ async fn get_admin_post_analytics(
     State(state): State<Arc<AppState>>,
     Query(query): Query<AdminAnalyticsQuery>,
 ) -> Result<Json<Vec<AdminPostStats>>, StatusCode> {
-    if user.role != "super_admin" {
+    if user.role != "platform_admin" {
         return Err(StatusCode::FORBIDDEN);
     }
 
@@ -1221,7 +1279,7 @@ async fn get_admin_search_analytics(
     State(state): State<Arc<AppState>>,
     Query(query): Query<AdminAnalyticsQuery>,
 ) -> Result<Json<AdminSearchAnalyticsResponse>, StatusCode> {
-    if user.role != "super_admin" {
+    if user.role != "platform_admin" {
         return Err(StatusCode::FORBIDDEN);
     }
 
@@ -1329,7 +1387,7 @@ async fn get_admin_referrer_stats(
     State(state): State<Arc<AppState>>,
     Query(query): Query<AdminAnalyticsQuery>,
 ) -> Result<Json<AdminReferrerResponse>, StatusCode> {
-    if user.role != "super_admin" {
+    if user.role != "platform_admin" {
         return Err(StatusCode::FORBIDDEN);
     }
 
@@ -1410,5 +1468,361 @@ async fn update_user_preferences(
 
     Ok(Json(UserPreferencesResponse {
         preferences: payload.preferences,
+    }))
+}
+
+// User Management Structs
+#[derive(Serialize, Deserialize)]
+struct CreateUserRequest {
+    email: String,
+    name: String,
+    password: String,
+    role: String, // platform_admin or domain_user
+    domain_permissions: Option<Vec<DomainPermissionInput>>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct UpdateUserRequest {
+    email: Option<String>,
+    name: Option<String>,
+    password: Option<String>,
+    role: Option<String>,
+    domain_permissions: Option<Vec<DomainPermissionInput>>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct DomainPermissionInput {
+    domain_id: i32,
+    role: String, // admin, editor, viewer, none
+}
+
+#[derive(Serialize, sqlx::FromRow)]
+struct UserResponse {
+    id: i32,
+    email: String,
+    name: String,
+    role: String,
+    created_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::DateTime<chrono::Utc>,
+    domain_permissions: Vec<DomainPermissionResponse>,
+}
+
+#[derive(Serialize, sqlx::FromRow)]
+struct DomainPermissionResponse {
+    domain_id: i32,
+    domain_name: Option<String>,
+    role: String,
+}
+
+#[derive(Serialize)]
+struct UsersResponse {
+    users: Vec<UserResponse>,
+    total: i64,
+    page: i32,
+    per_page: i32,
+}
+
+#[derive(Deserialize)]
+struct UsersQuery {
+    page: Option<i32>,
+    per_page: Option<i32>,
+    role: Option<String>,
+    search: Option<String>,
+}
+
+// User Management Handlers
+
+// List users with pagination and filtering
+async fn list_users(
+    Extension(user): Extension<UserContext>,
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<UsersQuery>,
+) -> Result<Json<UsersResponse>, StatusCode> {
+    // Only platform admins can list users
+    if user.role != "platform_admin" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    let page = params.page.unwrap_or(1).max(1);
+    let per_page = params.per_page.unwrap_or(20).min(100).max(1) as i64;
+    let offset = ((page - 1) * (per_page as i32)) as i64;
+
+    // TODO: Implement role and search filtering
+    // For now, returning all users with pagination
+
+    // For now, let's use a simple query without complex filtering
+    let users_data = sqlx::query!(
+        "SELECT id, email, name, role, created_at, updated_at FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+        per_page,
+        offset
+    )
+    .fetch_all(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let total = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users")
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Convert to response format with domain permissions
+    let mut users = Vec::new();
+    for user_data in users_data {
+        // Load domain permissions for this user
+        let domain_permissions = sqlx::query_as::<_, DomainPermissionResponse>(
+            r#"
+            SELECT udp.domain_id, d.name as domain_name, udp.role
+            FROM user_domain_permissions udp
+            LEFT JOIN domains d ON udp.domain_id = d.id
+            WHERE udp.user_id = $1
+            ORDER BY d.name
+            "#,
+        )
+        .bind(user_data.id)
+        .fetch_all(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        users.push(UserResponse {
+            id: user_data.id,
+            email: user_data.email,
+            name: user_data.name,
+            role: user_data.role.unwrap_or_default(),
+            created_at: user_data.created_at.unwrap_or_default(),
+            updated_at: user_data.updated_at.unwrap_or_default(),
+            domain_permissions,
+        });
+    }
+
+    Ok(Json(UsersResponse {
+        users,
+        total,
+        page,
+        per_page: per_page as i32,
+    }))
+}
+
+// Create a new user
+async fn create_user(
+    Extension(user): Extension<UserContext>,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CreateUserRequest>,
+) -> Result<Json<UserResponse>, StatusCode> {
+    // Only platform admins can create users
+    if user.role != "platform_admin" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    // Hash the password (in production, use proper bcrypt)
+    let password_hash = format!("$2b$12$placeholder_hash_{}", payload.password);
+
+    // Insert user
+    let user_id = sqlx::query_scalar::<_, i32>(
+        "INSERT INTO users (email, name, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id",
+    )
+    .bind(&payload.email)
+    .bind(&payload.name)
+    .bind(&password_hash)
+    .bind(&payload.role)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Insert domain permissions if provided
+    if let Some(permissions) = &payload.domain_permissions {
+        for perm in permissions {
+            if perm.role != "none" {
+                sqlx::query(
+                    "INSERT INTO user_domain_permissions (user_id, domain_id, role) VALUES ($1, $2, $3) ON CONFLICT (user_id, domain_id) DO UPDATE SET role = $3",
+                )
+                .bind(user_id)
+                .bind(perm.domain_id)
+                .bind(&perm.role)
+                .execute(&state.db)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            }
+        }
+    }
+
+    // Return the created user
+    get_user_by_id(&state, user_id).await
+}
+
+// Get a single user
+async fn get_user(
+    Extension(user): Extension<UserContext>,
+    State(state): State<Arc<AppState>>,
+    Path(user_id): Path<i32>,
+) -> Result<Json<UserResponse>, StatusCode> {
+    // Only platform admins can view users
+    if user.role != "platform_admin" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    get_user_by_id(&state, user_id).await
+}
+
+// Update a user
+async fn update_user(
+    Extension(user): Extension<UserContext>,
+    State(state): State<Arc<AppState>>,
+    Path(user_id): Path<i32>,
+    Json(payload): Json<UpdateUserRequest>,
+) -> Result<Json<UserResponse>, StatusCode> {
+    // Only platform admins can update users
+    if user.role != "platform_admin" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    // Update user fields if provided
+    if payload.email.is_some()
+        || payload.name.is_some()
+        || payload.role.is_some()
+        || payload.password.is_some()
+    {
+        let mut query = "UPDATE users SET updated_at = NOW()".to_string();
+        let mut bind_count = 0;
+
+        if payload.email.is_some() {
+            bind_count += 1;
+            query.push_str(&format!(", email = ${}", bind_count));
+        }
+        if payload.name.is_some() {
+            bind_count += 1;
+            query.push_str(&format!(", name = ${}", bind_count));
+        }
+        if payload.role.is_some() {
+            bind_count += 1;
+            query.push_str(&format!(", role = ${}", bind_count));
+        }
+        if payload.password.is_some() {
+            bind_count += 1;
+            query.push_str(&format!(", password_hash = ${}", bind_count));
+        }
+
+        query.push_str(&format!(" WHERE id = ${}", bind_count + 1));
+
+        let mut sqlx_query = sqlx::query(&query);
+        if let Some(email) = &payload.email {
+            sqlx_query = sqlx_query.bind(email);
+        }
+        if let Some(name) = &payload.name {
+            sqlx_query = sqlx_query.bind(name);
+        }
+        if let Some(role) = &payload.role {
+            sqlx_query = sqlx_query.bind(role);
+        }
+        if let Some(password) = &payload.password {
+            let password_hash = format!("$2b$12$placeholder_hash_{}", password);
+            sqlx_query = sqlx_query.bind(password_hash);
+        }
+
+        sqlx_query
+            .bind(user_id)
+            .execute(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    }
+
+    // Update domain permissions if provided
+    if let Some(permissions) = &payload.domain_permissions {
+        // Delete existing permissions
+        sqlx::query("DELETE FROM user_domain_permissions WHERE user_id = $1")
+            .bind(user_id)
+            .execute(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        // Insert new permissions
+        for perm in permissions {
+            if perm.role != "none" {
+                sqlx::query(
+                    "INSERT INTO user_domain_permissions (user_id, domain_id, role) VALUES ($1, $2, $3)",
+                )
+                .bind(user_id)
+                .bind(perm.domain_id)
+                .bind(&perm.role)
+                .execute(&state.db)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            }
+        }
+    }
+
+    // Return the updated user
+    get_user_by_id(&state, user_id).await
+}
+
+// Delete a user
+async fn delete_user(
+    Extension(user): Extension<UserContext>,
+    State(state): State<Arc<AppState>>,
+    Path(user_id): Path<i32>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    // Only platform admins can delete users
+    if user.role != "platform_admin" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    // Don't allow deleting yourself
+    if user.id == user_id {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // Delete user (cascade will handle domain permissions)
+    let result = sqlx::query("DELETE FROM users WHERE id = $1")
+        .bind(user_id)
+        .execute(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    if result.rows_affected() == 0 {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    Ok(Json(
+        serde_json::json!({"message": "User deleted successfully"}),
+    ))
+}
+
+// Helper function to get user by ID with domain permissions
+async fn get_user_by_id(
+    state: &Arc<AppState>,
+    user_id: i32,
+) -> Result<Json<UserResponse>, StatusCode> {
+    // Get user info
+    let user = sqlx::query!(
+        "SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = $1",
+        user_id
+    )
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .ok_or(StatusCode::NOT_FOUND)?;
+
+    // Get domain permissions
+    let domain_permissions = sqlx::query_as::<_, DomainPermissionResponse>(
+        r#"
+        SELECT udp.domain_id, d.name as domain_name, udp.role
+        FROM user_domain_permissions udp
+        LEFT JOIN domains d ON udp.domain_id = d.id
+        WHERE udp.user_id = $1
+        ORDER BY d.name
+        "#,
+    )
+    .bind(user_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(UserResponse {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role.unwrap_or_default(),
+        created_at: user.created_at.unwrap_or_default(),
+        updated_at: user.updated_at.unwrap_or_default(),
+        domain_permissions,
     }))
 }

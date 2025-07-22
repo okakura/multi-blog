@@ -4,9 +4,13 @@ applyTo: '**'
 
 Provide project context and coding guidelines that AI should follow when generating code, answering questions, or reviewing changes.
 
-use pnpm for package management.
+Use PNPM for package management, builds, and running the development server.
+DO NOT use NPM or Yarn.
 
-1. **Project Structure**: Understand the folder structure and where different types of files are located (e.g., components, hooks, services).
+When you need to call 'cargo run' it's going to open a new terminal at the root of the project
+so you need to chain 'cd api && cargo run' to run the backend server, or alternatively use the Makefile command `make dev-backend`.
+
+1. **Project Structure**: Understand the folder structure and where different types of files are located (e.g., components, hooks, services). Use pnpm for package management, builds, and running the development server.
 
 2. **Data Flow**: Be aware of how data flows through the application, including the use of context, props, and state management.
 

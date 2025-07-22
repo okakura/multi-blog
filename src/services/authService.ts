@@ -1,4 +1,6 @@
 // src/services/authService.ts
+import { API_CONFIG, buildApiUrl } from '../config/dev'
+
 export interface LoginCredentials {
   email: string
   password: string
@@ -8,7 +10,12 @@ export interface User {
   id: number
   email: string
   name: string
-  role: 'admin' | 'editor' | 'viewer'
+  role: 'platform_admin' | 'domain_user'
+  domain_permissions?: Array<{
+    domain_id: number
+    domain_name?: string
+    role: 'admin' | 'editor' | 'viewer' | 'none'
+  }>
 }
 
 export interface LoginResponse {
@@ -16,10 +23,11 @@ export interface LoginResponse {
   token: string
 }
 
-const API_BASE_URL = 'http://localhost:3000'
-
 class AuthService {
   private token: string | null = null
+  private currentUserPromise: Promise<User | null> | null = null
+  private lastCurrentUserFetch: number = 0
+  private readonly CACHE_DURATION = 10000 // 10 seconds
 
   constructor() {
     // Load token from localStorage on initialization
@@ -30,13 +38,16 @@ class AuthService {
     credentials: LoginCredentials
   ): Promise<{ user: User; token: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(credentials),
-      })
+      const response = await fetch(
+        buildApiUrl(API_CONFIG.ENDPOINTS.AUTH.LOGIN),
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(credentials),
+        }
+      )
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -63,7 +74,7 @@ class AuthService {
   async logout(): Promise<void> {
     try {
       if (this.token) {
-        await fetch(`${API_BASE_URL}/auth/logout`, {
+        await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.AUTH.LOGOUT), {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${this.token}`,
@@ -84,17 +95,42 @@ class AuthService {
       return null
     }
 
+    // Check if we have a recent cached result or pending request
+    const now = Date.now()
+    if (
+      this.currentUserPromise &&
+      now - this.lastCurrentUserFetch < this.CACHE_DURATION
+    ) {
+      return this.currentUserPromise
+    }
+
+    // Create new request and cache it
+    this.lastCurrentUserFetch = now
+    this.currentUserPromise = this.fetchCurrentUser()
+
+    return this.currentUserPromise
+  }
+
+  private async fetchCurrentUser(): Promise<User | null> {
+    if (!this.token) {
+      return null
+    }
+
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/verify`, {
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-        },
-      })
+      const response = await fetch(
+        buildApiUrl(API_CONFIG.ENDPOINTS.AUTH.VERIFY),
+        {
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+          },
+        }
+      )
 
       if (!response.ok) {
         // Token is invalid, clear it
         this.token = null
         localStorage.removeItem('auth_token')
+        this.currentUserPromise = null
         return null
       }
 
@@ -102,9 +138,10 @@ class AuthService {
       return user
     } catch (error) {
       console.error('Failed to verify token:', error)
-      // On error, clear token
+      // On error, clear token and cache
       this.token = null
       localStorage.removeItem('auth_token')
+      this.currentUserPromise = null
       return null
     }
   }

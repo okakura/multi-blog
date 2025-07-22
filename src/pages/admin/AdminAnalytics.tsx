@@ -1,47 +1,48 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { usePreferences } from '../../hooks/useUserPreferences'
 import {
+  ArrowLeft,
   BarChart3,
-  TrendingUp,
-  Users,
+  Calendar,
+  Clock,
+  Download,
+  ExternalLink,
   Eye,
   Globe,
-  Search,
-  ExternalLink,
-  Calendar,
-  RefreshCw,
-  ArrowLeft,
-  Download,
-  Clock,
-  MousePointer,
-  Smartphone,
   Monitor,
+  MousePointer,
+  RefreshCw,
+  Search,
+  Smartphone,
   Tablet,
+  TrendingUp,
+  Users,
 } from 'lucide-react'
+import type React from 'react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
   Area,
   AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts'
 import {
   useAnalyticsOverview,
-  useTrafficStats,
   usePostAnalytics,
-  useSearchAnalytics,
   useReferrerStats,
+  useSearchAnalytics,
+  useTrafficStats,
 } from '../../hooks/useAdminPosts'
+import { usePreferences } from '../../hooks/useUserPreferences'
 import { adminToast } from '../../utils/toast'
 
 const AdminAnalytics: React.FC = () => {
@@ -57,42 +58,44 @@ const AdminAnalytics: React.FC = () => {
       : preferences.appearance.theme
 
   const [selectedPeriod, setSelectedPeriod] = useState(30)
+  // Remove hardcoded domain - now aggregates all domains user has access to
+  // const [selectedDomain] = useState('tech.blog') // Default domain for analytics
 
-  // Fetch all analytics data
+  // Fetch all analytics data - now aggregated across all permitted domains
   const {
     overview,
     isLoading: overviewLoading,
     error: overviewError,
     refresh: refreshOverview,
-  } = useAnalyticsOverview(selectedPeriod)
+  } = useAnalyticsOverview(selectedPeriod) // No domain parameter
 
   const {
     traffic,
     isLoading: trafficLoading,
     error: trafficError,
     refresh: refreshTraffic,
-  } = useTrafficStats(selectedPeriod)
+  } = useTrafficStats(selectedPeriod) // No domain parameter
 
   const {
     postAnalytics,
     isLoading: postsLoading,
     error: postsError,
     refresh: refreshPosts,
-  } = usePostAnalytics(selectedPeriod)
+  } = usePostAnalytics(selectedPeriod) // No domain parameter
 
   const {
     searchAnalytics,
     isLoading: searchLoading,
     error: searchError,
     refresh: refreshSearch,
-  } = useSearchAnalytics(selectedPeriod)
+  } = useSearchAnalytics(selectedPeriod) // No domain parameter
 
   const {
     referrerStats,
     isLoading: referrersLoading,
     error: referrersError,
     refresh: refreshReferrers,
-  } = useReferrerStats(selectedPeriod)
+  } = useReferrerStats(selectedPeriod) // No domain parameter
 
   const isLoading =
     overviewLoading ||
@@ -120,7 +123,7 @@ const AdminAnalytics: React.FC = () => {
         refreshReferrers(),
       ])
       adminToast.dataRefreshed()
-    } catch (error) {
+    } catch (_error) {
       adminToast.deleting() // Using an existing method instead
     }
   }
@@ -632,7 +635,7 @@ const AdminAnalytics: React.FC = () => {
                 <div className='space-y-4'>
                   {searchAnalytics.popular_terms
                     .slice(0, 5)
-                    .map((term, index) => (
+                    .map((term, _index) => (
                       <div
                         key={term.query}
                         className='flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors'>

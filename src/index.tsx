@@ -1,6 +1,6 @@
 import React from 'react'
-import { BrowserRouter } from 'react-router-dom'
 import ReactDOM from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
 import BlogPlatform from './App'
 import { DomainProvider } from './contexts/DomainContext'
 import { SWRProvider } from './providers/SWRProvider'
@@ -17,6 +17,6 @@ if (rootEl) {
           </BrowserRouter>
         </DomainProvider>
       </SWRProvider>
-    </React.StrictMode>
+    </React.StrictMode>,
   )
 }

@@ -1,14 +1,14 @@
 // Hook for managing admin posts with SWR and API integration
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import useSWR from 'swr'
 import {
-  adminApiService,
   type AdminPost,
+  type CreateDomainRequest,
   type CreatePostRequest,
   type Domain,
-  type CreateDomainRequest,
   type UpdateDomainRequest,
+  adminApiService,
 } from '../services/adminApi'
 
 // Cache key creator for admin posts
@@ -17,7 +17,7 @@ const createAdminCacheKey = {
   post: (domain: string, id: number) => `admin-post-${domain}-${id}`,
 }
 
-export const useAdminPosts = (domain: string = 'all') => {
+export const useAdminPosts = (domain = 'all') => {
   const [isCreating, setIsCreating] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -32,34 +32,20 @@ export const useAdminPosts = (domain: string = 'all') => {
     createAdminCacheKey.posts(domain),
     async () => {
       if (domain === 'all') {
-        // Fetch posts from all domains and combine them
-        const domains = ['tech.blog', 'lifestyle.blog', 'business.blog']
-        const allPosts: AdminPost[] = []
-
-        for (const d of domains) {
-          try {
-            const response = await adminApiService.getPosts(1, 100, d)
-            if (response.posts) {
-              // Add domain info to each post for display
-              const postsWithDomain = response.posts.map((post) => ({
-                ...post,
-                domain_name: d,
-              }))
-              allPosts.push(...postsWithDomain)
-            }
-          } catch (err) {
-            console.warn(`Failed to fetch posts for domain ${d}:`, err)
-          }
+        // Use a single backend call instead of multiple frontend calls
+        try {
+          const response = await adminApiService.getPosts(1, 100, 'all')
+          console.log('useAdminPosts all domains response:', response) // Debug log
+          return response.posts || []
+        } catch (err) {
+          console.warn('Failed to fetch posts for all domains:', err)
+          return []
         }
-
-        console.log('useAdminPosts all domains response:', allPosts) // Debug log
-        return allPosts
-      } else {
-        // Fetch posts for specific domain
-        const response = await adminApiService.getPosts(1, 100, domain)
-        console.log('useAdminPosts single domain response:', response) // Debug log
-        return response.posts || []
       }
+      // Fetch posts for specific domain
+      const response = await adminApiService.getPosts(1, 100, domain)
+      console.log('useAdminPosts single domain response:', response) // Debug log
+      return response.posts || []
     },
     {
       revalidateOnFocus: false,
@@ -207,69 +193,8 @@ export const useAdminPost = (domain: string, id: number) => {
   }
 }
 
-// Hook for analytics - enhanced with comprehensive data
-export const useAdminAnalytics = (domain: string = 'tech.blog') => {
-  const {
-    data: analytics,
-    error,
-    isLoading,
-    mutate,
-  } = useSWR(
-    `admin-analytics-comprehensive-${domain}`,
-    async () => {
-      // First get the basic analytics (keeping compatibility)
-      const basicAnalytics = await adminApiService.getAnalytics(domain)
-
-      // Then try to get the comprehensive analytics data
-      try {
-        const token = localStorage.getItem('auth_token')
-        if (!token) return basicAnalytics
-
-        const response = await fetch(
-          `http://localhost:3000/admin/analytics/overview?days=30`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'X-Domain': 'tech.localhost',
-              'Content-Type': 'application/json',
-            },
-          }
-        )
-
-        if (response.ok) {
-          const comprehensiveData = await response.json()
-          // Merge the data for enhanced dashboard experience
-          return {
-            ...basicAnalytics,
-            comprehensive: comprehensiveData,
-            top_posts: comprehensiveData.top_posts || [],
-            top_categories: comprehensiveData.top_categories || [],
-            current_period: comprehensiveData.current_period || null,
-            previous_period: comprehensiveData.previous_period || null,
-          }
-        }
-      } catch (err) {
-        console.warn('Comprehensive analytics failed, using basic data:', err)
-      }
-
-      return basicAnalytics
-    },
-    {
-      revalidateOnFocus: false,
-      refreshInterval: 300000, // Refresh every 5 minutes
-    }
-  )
-
-  return {
-    analytics,
-    isLoading,
-    error: error?.message || null,
-    refresh: mutate,
-  }
-}
-
-// Hook for domain settings
-export const useAdminDomainSettings = (domain: string = 'tech.blog') => {
+// Hook for domain settings - requires specific domain
+export const useAdminDomainSettings = (domain: string) => {
   const [isUpdating, setIsUpdating] = useState(false)
 
   const {
@@ -314,30 +239,16 @@ export const useAdminDomainSettings = (domain: string = 'tech.blog') => {
   }
 }
 
-// Analytics-specific hooks
-export const useAnalyticsOverview = (days = 30) => {
+// Analytics-specific hooks - optimized to avoid duplicate API calls
+export const useAnalyticsOverview = (days = 30, domain?: string) => {
   const { data, error, isLoading, mutate } = useSWR(
-    `analytics-overview-${days}`,
+    `analytics-overview-${days}-${domain || 'all'}`,
     async () => {
-      const token = localStorage.getItem('auth_token')
-      if (!token) throw new Error('No auth token')
-
-      const response = await fetch(
-        `http://localhost:3000/admin/analytics/overview?days=${days}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'X-Domain': 'tech.localhost',
-            'Content-Type': 'application/json',
-          },
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error(`Analytics overview failed: ${response.status}`)
-      }
-
-      return await response.json()
+      return await adminApiService.getAnalyticsOverview(days, domain)
+    },
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 10000, // 10 seconds deduplication
     }
   )
 
@@ -349,29 +260,45 @@ export const useAnalyticsOverview = (days = 30) => {
   }
 }
 
-export const useTrafficStats = (days = 30) => {
+// Optimized admin analytics hook - reuses analytics overview data to prevent duplicates
+export const useAdminAnalytics = (domain?: string) => {
+  // Use the same analytics overview hook to prevent duplicate calls
+  const { overview, isLoading, error, refresh } = useAnalyticsOverview(
+    30,
+    domain
+  )
+
+  // Transform the overview data to match the expected analytics format
+  const analytics = React.useMemo(() => {
+    if (!overview) return null
+
+    return {
+      total_posts: overview.current_period?.posts || 0,
+      posts_this_month: overview.current_period?.posts || 0,
+      active_domains: overview.active_domains || 3,
+      total_views: overview.current_period?.page_views || 0,
+      views_this_month: overview.current_period?.page_views || 0,
+      comprehensive: overview,
+      top_posts: overview.top_posts || [],
+      top_categories: overview.top_categories || [],
+      current_period: overview.current_period || null,
+      previous_period: overview.previous_period || null,
+    }
+  }, [overview])
+
+  return {
+    analytics,
+    isLoading,
+    error,
+    refresh,
+  }
+}
+
+export const useTrafficStats = (days = 30, domain?: string) => {
   const { data, error, isLoading, mutate } = useSWR(
-    `analytics-traffic-${days}`,
+    `traffic-stats-${days}-${domain || 'all'}`,
     async () => {
-      const token = localStorage.getItem('auth_token')
-      if (!token) throw new Error('No auth token')
-
-      const response = await fetch(
-        `http://localhost:3000/admin/analytics/traffic?days=${days}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'X-Domain': 'tech.localhost',
-            'Content-Type': 'application/json',
-          },
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error(`Traffic stats failed: ${response.status}`)
-      }
-
-      return await response.json()
+      return await adminApiService.getTrafficAnalytics(days, domain)
     }
   )
 
@@ -383,29 +310,11 @@ export const useTrafficStats = (days = 30) => {
   }
 }
 
-export const usePostAnalytics = (days = 30) => {
+export const usePostAnalytics = (days = 30, domain?: string) => {
   const { data, error, isLoading, mutate } = useSWR(
-    `analytics-posts-${days}`,
+    `post-analytics-${days}-${domain || 'all'}`,
     async () => {
-      const token = localStorage.getItem('auth_token')
-      if (!token) throw new Error('No auth token')
-
-      const response = await fetch(
-        `http://localhost:3000/admin/analytics/posts?days=${days}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'X-Domain': 'tech.localhost',
-            'Content-Type': 'application/json',
-          },
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error(`Post analytics failed: ${response.status}`)
-      }
-
-      return await response.json()
+      return await adminApiService.getPostAnalytics(days, domain)
     }
   )
 
@@ -417,29 +326,11 @@ export const usePostAnalytics = (days = 30) => {
   }
 }
 
-export const useSearchAnalytics = (days = 30) => {
+export const useSearchAnalytics = (days = 30, domain?: string) => {
   const { data, error, isLoading, mutate } = useSWR(
-    `analytics-search-${days}`,
+    `search-analytics-${days}-${domain || 'all'}`,
     async () => {
-      const token = localStorage.getItem('auth_token')
-      if (!token) throw new Error('No auth token')
-
-      const response = await fetch(
-        `http://localhost:3000/admin/analytics/search-terms?days=${days}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'X-Domain': 'tech.localhost',
-            'Content-Type': 'application/json',
-          },
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error(`Search analytics failed: ${response.status}`)
-      }
-
-      return await response.json()
+      return await adminApiService.getSearchAnalytics(days, domain)
     }
   )
 
@@ -451,29 +342,11 @@ export const useSearchAnalytics = (days = 30) => {
   }
 }
 
-export const useReferrerStats = (days = 30) => {
+export const useReferrerStats = (days = 30, domain?: string) => {
   const { data, error, isLoading, mutate } = useSWR(
-    `analytics-referrers-${days}`,
+    `referrer-stats-${days}-${domain || 'all'}`,
     async () => {
-      const token = localStorage.getItem('auth_token')
-      if (!token) throw new Error('No auth token')
-
-      const response = await fetch(
-        `http://localhost:3000/admin/analytics/referrers?days=${days}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'X-Domain': 'tech.localhost',
-            'Content-Type': 'application/json',
-          },
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error(`Referrer stats failed: ${response.status}`)
-      }
-
-      return await response.json()
+      return await adminApiService.getReferrerAnalytics(days, domain)
     }
   )
 

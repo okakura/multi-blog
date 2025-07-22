@@ -91,6 +91,11 @@ class PerformanceMetricsService {
   }
 
   private updateAverageResponseTime(duration: number) {
+    // Ensure duration is a valid number
+    if (typeof duration !== 'number' || isNaN(duration) || duration < 0) {
+      return
+    }
+
     this.responseTimes.push(duration)
 
     // Keep only recent response times for accuracy
@@ -98,8 +103,11 @@ class PerformanceMetricsService {
       this.responseTimes = this.responseTimes.slice(-1000)
     }
 
+    const sum = this.responseTimes.reduce((a, b) => a + b, 0)
     this.metrics.averageResponseTime =
-      this.responseTimes.reduce((a, b) => a + b, 0) / this.responseTimes.length
+      this.responseTimes.length > 0
+        ? Math.round(sum / this.responseTimes.length)
+        : 0
   }
 
   // Enhanced API call tracking with URL, method, and status
@@ -160,7 +168,9 @@ class PerformanceMetricsService {
   private updateCacheHitRate() {
     const total = this.metrics.cacheHits + this.metrics.cacheMisses
     this.metrics.cacheHitRate =
-      total > 0 ? (this.metrics.cacheHits / total) * 100 : 0
+      total > 0
+        ? Math.round((this.metrics.cacheHits / total) * 100 * 10) / 10
+        : 0
   }
 
   // Enhanced error tracking with URL and status
@@ -215,21 +225,51 @@ class PerformanceMetricsService {
       const method =
         init?.method || (input instanceof Request ? input.method : 'GET')
 
-      // Categorize API calls based on URL patterns
-      let category = 'api_call'
-      if (url.includes('/preferences')) category = 'preferences_api'
-      else if (url.includes('/posts')) category = 'posts_api'
-      else if (url.includes('/analytics')) category = 'analytics_api'
-      else if (url.includes('/admin')) category = 'admin_api'
+      // Enhanced categorization with more specific patterns
+      let category = 'unknown_api'
+      const pathname = new URL(url, 'http://localhost').pathname
+
+      if (
+        pathname.includes('/user/preferences') ||
+        pathname.includes('/preferences')
+      ) {
+        category = 'preferences_api'
+      } else if (pathname.includes('/admin/analytics')) {
+        category = 'analytics_api'
+      } else if (pathname.includes('/admin/posts')) {
+        category = 'posts_api'
+      } else if (pathname.includes('/admin/users')) {
+        category = 'users_api'
+      } else if (pathname.includes('/admin/domains')) {
+        category = 'domains_api'
+      } else if (pathname.includes('/admin/')) {
+        category = 'admin_other'
+      } else if (pathname.includes('/posts')) {
+        category = 'posts_public'
+      } else if (pathname.includes('/analytics')) {
+        category = 'analytics_public'
+      } else {
+        category = `api_call_${pathname.split('/')[1] || 'root'}`
+      }
 
       try {
         const response = await originalFetch(input, init)
         const duration = Date.now() - startTime
 
-        this.trackApiCall(category, duration, url, method, response.status, {
-          ok: response.ok,
-          statusText: response.statusText,
-        })
+        // Ensure duration is valid (prevent NaN)
+        const validDuration = isNaN(duration) || duration < 0 ? 0 : duration
+
+        this.trackApiCall(
+          category,
+          validDuration,
+          url,
+          method,
+          response.status,
+          {
+            ok: response.ok,
+            statusText: response.statusText,
+          }
+        )
 
         if (!response.ok) {
           this.trackError(
@@ -311,12 +351,19 @@ export const usePerformanceMetrics = () => {
   React.useEffect(() => {
     if (!performanceMetrics.isEnabled) return
 
+    // Reduce update frequency to every 10 seconds instead of 1 second
     const interval = setInterval(() => {
       setMetrics(performanceMetrics.getMetrics())
-    }, 1000)
+    }, 10000)
 
     return () => clearInterval(interval)
   }, [])
+
+  // Enhanced reset function that immediately updates state
+  const resetWithUpdate = () => {
+    performanceMetrics.reset()
+    setMetrics(performanceMetrics.getMetrics()) // Immediate update
+  }
 
   return {
     metrics,
@@ -328,7 +375,7 @@ export const usePerformanceMetrics = () => {
     trackTiming: performanceMetrics.trackTiming.bind(performanceMetrics),
     wrapFetchWithMetrics:
       performanceMetrics.wrapFetchWithMetrics.bind(performanceMetrics),
-    reset: performanceMetrics.reset.bind(performanceMetrics),
+    reset: resetWithUpdate, // Use enhanced reset function
     exportMetrics: performanceMetrics.exportMetrics.bind(performanceMetrics),
   }
 }

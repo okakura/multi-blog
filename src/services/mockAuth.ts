@@ -39,7 +39,7 @@ export const mockAuthService = {
   // Mock login
   async login(
     email: string,
-    password: string
+    password: string,
   ): Promise<{ user: MockUser; token: string }> {
     await delay(1000) // Simulate network delay
 

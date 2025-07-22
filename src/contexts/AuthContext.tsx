@@ -1,12 +1,18 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import type React from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { authService } from '../services/authService'
 
 export interface User {
   id: number
   email: string
   name: string
-  role: 'admin' | 'editor' | 'viewer'
+  role: 'platform_admin' | 'domain_user'
   avatar?: string
+  domain_permissions?: Array<{
+    domain_id: number
+    domain_name?: string
+    role: 'admin' | 'editor' | 'viewer' | 'none'
+  }>
 }
 
 export interface AuthContextType {

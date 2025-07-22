@@ -1,32 +1,33 @@
-import React, { useCallback, useState } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
+import { Color } from '@tiptap/extension-color'
+import Highlight from '@tiptap/extension-highlight'
 import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
 import TextAlign from '@tiptap/extension-text-align'
-import Typography from '@tiptap/extension-typography'
-import { Color } from '@tiptap/extension-color'
 import { TextStyle } from '@tiptap/extension-text-style'
-import Highlight from '@tiptap/extension-highlight'
-import ImageUpload from './ImageUpload'
+import Typography from '@tiptap/extension-typography'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   Bold,
-  Italic,
-  Strikethrough,
   Code,
-  Quote,
+  Highlighter,
+  Image as ImageIcon,
+  Italic,
+  Link as LinkIcon,
   List,
   ListOrdered,
-  Link as LinkIcon,
-  Image as ImageIcon,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Highlighter,
-  Undo,
+  Quote,
   Redo,
+  Strikethrough,
   Type,
+  Undo,
 } from 'lucide-react'
+import type React from 'react'
+import { useCallback, useState } from 'react'
+import ImageUpload from './ImageUpload'
 
 interface RichTextEditorProps {
   content: string
@@ -93,7 +94,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         editor.chain().focus().setImage({ src: url }).run()
       }
     },
-    [editor]
+    [editor],
   )
 
   const openImageUpload = useCallback(() => {
@@ -119,9 +120,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   if (!editor) {
     return (
       <div className={`w-full border border-slate-300 rounded-lg ${className}`}>
-        <div className='flex items-center justify-center p-8 text-slate-500'>
-          <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600'></div>
-          <span className='ml-2'>Loading editor...</span>
+        <div className="flex items-center justify-center p-8 text-slate-500">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600" />
+          <span className="ml-2">Loading editor...</span>
         </div>
       </div>
     )
@@ -141,7 +142,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     title: string
   }) => (
     <button
-      type='button'
+      type="button"
       onClick={onClick}
       disabled={disabled}
       title={title}
@@ -153,107 +154,121 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         disabled
           ? 'opacity-50 cursor-not-allowed'
           : 'border border-transparent hover:border-slate-200'
-      }`}>
+      }`}
+    >
       {children}
     </button>
   )
 
   return (
     <div
-      className={`w-full border border-slate-300 rounded-lg bg-white ${className}`}>
+      className={`w-full border border-slate-300 rounded-lg bg-white ${className}`}
+    >
       {/* Toolbar */}
-      <div className='border-b border-slate-200 p-3'>
-        <div className='flex flex-wrap items-center gap-1'>
+      <div className="border-b border-slate-200 p-3">
+        <div className="flex flex-wrap items-center gap-1">
           {/* Text Formatting */}
-          <div className='flex items-center gap-1 pr-2 border-r border-slate-200'>
+          <div className="flex items-center gap-1 pr-2 border-r border-slate-200">
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBold().run()}
               isActive={editor.isActive('bold')}
-              title='Bold'>
+              title="Bold"
+            >
               <Bold size={16} />
             </ToolbarButton>
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleItalic().run()}
               isActive={editor.isActive('italic')}
-              title='Italic'>
+              title="Italic"
+            >
               <Italic size={16} />
             </ToolbarButton>
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleStrike().run()}
               isActive={editor.isActive('strike')}
-              title='Strikethrough'>
+              title="Strikethrough"
+            >
               <Strikethrough size={16} />
             </ToolbarButton>
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleCode().run()}
               isActive={editor.isActive('code')}
-              title='Inline Code'>
+              title="Inline Code"
+            >
               <Code size={16} />
             </ToolbarButton>
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleHighlight().run()}
               isActive={editor.isActive('highlight')}
-              title='Highlight'>
+              title="Highlight"
+            >
               <Highlighter size={16} />
             </ToolbarButton>
           </div>
 
           {/* Headings */}
-          <div className='flex items-center gap-1 pr-2 border-r border-slate-200'>
+          <div className="flex items-center gap-1 pr-2 border-r border-slate-200">
             <ToolbarButton
               onClick={() =>
                 editor.chain().focus().toggleHeading({ level: 1 }).run()
               }
               isActive={editor.isActive('heading', { level: 1 })}
-              title='Heading 1'>
-              <Type size={16} className='font-bold' />
+              title="Heading 1"
+            >
+              <Type size={16} className="font-bold" />
             </ToolbarButton>
             <ToolbarButton
               onClick={() =>
                 editor.chain().focus().toggleHeading({ level: 2 }).run()
               }
               isActive={editor.isActive('heading', { level: 2 })}
-              title='Heading 2'>
-              <Type size={14} className='font-semibold' />
+              title="Heading 2"
+            >
+              <Type size={14} className="font-semibold" />
             </ToolbarButton>
             <ToolbarButton
               onClick={() =>
                 editor.chain().focus().toggleHeading({ level: 3 }).run()
               }
               isActive={editor.isActive('heading', { level: 3 })}
-              title='Heading 3'>
-              <Type size={12} className='font-medium' />
+              title="Heading 3"
+            >
+              <Type size={12} className="font-medium" />
             </ToolbarButton>
           </div>
 
           {/* Lists and Quotes */}
-          <div className='flex items-center gap-1 pr-2 border-r border-slate-200'>
+          <div className="flex items-center gap-1 pr-2 border-r border-slate-200">
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBulletList().run()}
               isActive={editor.isActive('bulletList')}
-              title='Bullet List'>
+              title="Bullet List"
+            >
               <List size={16} />
             </ToolbarButton>
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleOrderedList().run()}
               isActive={editor.isActive('orderedList')}
-              title='Numbered List'>
+              title="Numbered List"
+            >
               <ListOrdered size={16} />
             </ToolbarButton>
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBlockquote().run()}
               isActive={editor.isActive('blockquote')}
-              title='Quote'>
+              title="Quote"
+            >
               <Quote size={16} />
             </ToolbarButton>
           </div>
 
           {/* Alignment */}
-          <div className='flex items-center gap-1 pr-2 border-r border-slate-200'>
+          <div className="flex items-center gap-1 pr-2 border-r border-slate-200">
             <ToolbarButton
               onClick={() => editor.chain().focus().setTextAlign('left').run()}
               isActive={editor.isActive({ textAlign: 'left' })}
-              title='Align Left'>
+              title="Align Left"
+            >
               <AlignLeft size={16} />
             </ToolbarButton>
             <ToolbarButton
@@ -261,42 +276,47 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 editor.chain().focus().setTextAlign('center').run()
               }
               isActive={editor.isActive({ textAlign: 'center' })}
-              title='Align Center'>
+              title="Align Center"
+            >
               <AlignCenter size={16} />
             </ToolbarButton>
             <ToolbarButton
               onClick={() => editor.chain().focus().setTextAlign('right').run()}
               isActive={editor.isActive({ textAlign: 'right' })}
-              title='Align Right'>
+              title="Align Right"
+            >
               <AlignRight size={16} />
             </ToolbarButton>
           </div>
 
           {/* Media and Links */}
-          <div className='flex items-center gap-1 pr-2 border-r border-slate-200'>
+          <div className="flex items-center gap-1 pr-2 border-r border-slate-200">
             <ToolbarButton
               onClick={addLink}
               isActive={editor.isActive('link')}
-              title='Add Link'>
+              title="Add Link"
+            >
               <LinkIcon size={16} />
             </ToolbarButton>
-            <ToolbarButton onClick={openImageUpload} title='Add Image'>
+            <ToolbarButton onClick={openImageUpload} title="Add Image">
               <ImageIcon size={16} />
             </ToolbarButton>
           </div>
 
           {/* Undo/Redo */}
-          <div className='flex items-center gap-1'>
+          <div className="flex items-center gap-1">
             <ToolbarButton
               onClick={() => editor.chain().focus().undo().run()}
               disabled={!editor.can().undo()}
-              title='Undo'>
+              title="Undo"
+            >
               <Undo size={16} />
             </ToolbarButton>
             <ToolbarButton
               onClick={() => editor.chain().focus().redo().run()}
               disabled={!editor.can().redo()}
-              title='Redo'>
+              title="Redo"
+            >
               <Redo size={16} />
             </ToolbarButton>
           </div>
@@ -304,10 +324,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       </div>
 
       {/* Editor Content */}
-      <div className='relative'>
-        <EditorContent editor={editor} className='prose-editor' />
+      <div className="relative">
+        <EditorContent editor={editor} className="prose-editor" />
         {!content && (
-          <div className='absolute top-3 left-4 text-slate-500 pointer-events-none'>
+          <div className="absolute top-3 left-4 text-slate-500 pointer-events-none">
             {placeholder}
           </div>
         )}

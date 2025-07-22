@@ -1,13 +1,13 @@
-import useSWR, { mutate } from 'swr'
 import { useEffect } from 'react'
+import useSWR, { mutate } from 'swr'
 import { adminApiService } from '../services/adminApi'
-import { showToast } from '../utils/toast'
 import { performanceMetrics } from '../services/performanceMetrics'
 import type {
-  UserPreferences,
   PreferenceCategory,
   PreferenceKey,
+  UserPreferences,
 } from '../types/preferences'
+import { showToast } from '../utils/toast'
 
 // Default preferences
 export const defaultPreferences: UserPreferences = {
@@ -67,31 +67,10 @@ const PREFERENCES_KEY = '/admin/profile/preferences'
 
 // Fetcher function for SWR with performance tracking
 const fetchPreferences = async (): Promise<UserPreferences> => {
-  const startTime = performance.now()
-
   try {
     const result = await adminApiService.getPreferences()
-    const duration = performance.now() - startTime
-
-    performanceMetrics.trackApiCall(
-      'preferences_fetch',
-      {
-        success: true,
-        cached: false,
-      },
-      duration
-    )
-
     return result
   } catch (error) {
-    const duration = performance.now() - startTime
-
-    performanceMetrics.trackError(
-      'preferences_fetch',
-      error instanceof Error ? error.message : 'Unknown error',
-      { duration }
-    )
-
     // If user is not authenticated or preferences don't exist, return defaults
     console.warn('Failed to fetch preferences:', error)
     return defaultPreferences
@@ -124,11 +103,11 @@ export const usePreferences = () => {
     isLoading,
     mutate: mutatePreferences,
   } = useSWR<UserPreferences>(PREFERENCES_KEY, fetchPreferences, {
-    revalidateOnFocus: true,
+    revalidateOnFocus: false, // Disable aggressive focus revalidation
     revalidateOnReconnect: true,
     revalidateIfStale: false,
-    dedupingInterval: 2000,
-    fallbackData: defaultPreferences,
+    dedupingInterval: 5000, // Increase to reduce duplicate calls
+    // Remove fallbackData to prevent flash of default content
     onSuccess: (data) => {
       // Track cache hit when data is served from cache
       if (data && !isLoading) {
@@ -145,38 +124,39 @@ export const usePreferences = () => {
     },
   })
 
-  // Merge server preferences with defaults
+  // Merge server preferences with defaults (prevents flash of incorrect content)
   const preferences: UserPreferences = {
     ...defaultPreferences,
-    ...serverPreferences,
-    // Deep merge nested objects
+    // Only apply server preferences if they exist (prevents flash)
+    ...(serverPreferences ? serverPreferences : {}),
+    // Deep merge nested objects only if server data exists
     appearance: {
       ...defaultPreferences.appearance,
-      ...serverPreferences?.appearance,
+      ...(serverPreferences?.appearance || {}),
     },
     accessibility: {
       ...defaultPreferences.accessibility,
-      ...serverPreferences?.accessibility,
+      ...(serverPreferences?.accessibility || {}),
     },
     content: {
       ...defaultPreferences.content,
-      ...serverPreferences?.content,
+      ...(serverPreferences?.content || {}),
     },
     privacy: {
       ...defaultPreferences.privacy,
-      ...serverPreferences?.privacy,
+      ...(serverPreferences?.privacy || {}),
     },
     notifications: {
       ...defaultPreferences.notifications,
-      ...serverPreferences?.notifications,
+      ...(serverPreferences?.notifications || {}),
     },
     dashboard: {
       ...defaultPreferences.dashboard,
-      ...serverPreferences?.dashboard,
+      ...(serverPreferences?.dashboard || {}),
     },
     localization: {
       ...defaultPreferences.localization,
-      ...serverPreferences?.localization,
+      ...(serverPreferences?.localization || {}),
     },
   }
 
@@ -237,13 +217,16 @@ export const usePreferences = () => {
       const duration = performance.now() - startTime
       performanceMetrics.trackApiCall(
         'preferences_update',
+        duration,
+        undefined, // url
+        undefined, // method
+        undefined, // status
         {
           category,
           key: key as string,
           success: true,
           optimistic: true,
-        },
-        duration
+        }
       )
 
       return true
@@ -278,11 +261,14 @@ export const usePreferences = () => {
       const duration = performance.now() - startTime
       performanceMetrics.trackApiCall(
         'preferences_save_all',
+        duration,
+        undefined, // url
+        undefined, // method
+        undefined, // status
         {
           success: true,
           preferenceCount: Object.keys(newPreferences).length,
-        },
-        duration
+        }
       )
 
       showToast.success('Preferences saved successfully')

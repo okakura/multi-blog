@@ -7,10 +7,10 @@ import type { SWRConfiguration } from 'swr'
 // Enhanced SWR configuration for preferences with optimizations
 export const preferencesSwrConfig: SWRConfiguration = {
   // Cache configuration
-  revalidateOnFocus: true,
+  revalidateOnFocus: false, // Disable to prevent excessive API calls on focus
   revalidateOnReconnect: true,
   revalidateIfStale: false,
-  dedupingInterval: 5000, // Increased from 2000ms to reduce duplicate calls
+  dedupingInterval: 10000, // Increase to 10 seconds to reduce duplicate calls
 
   // Smart retry strategy
   shouldRetryOnError: (error: any) => {

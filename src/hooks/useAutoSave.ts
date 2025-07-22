@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type AutoSaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -27,7 +27,7 @@ interface UseAutoSaveReturn {
 
 export const useAutoSave = (
   data: any,
-  options: UseAutoSaveOptions
+  options: UseAutoSaveOptions,
 ): UseAutoSaveReturn => {
   const { key, debounceMs = 2000, enabled = true, onSave, onRestore } = options
 
@@ -71,7 +71,7 @@ export const useAutoSave = (
         console.warn('Auto-save failed. Your changes are still in the editor.')
       }
     },
-    [getStorageKey, onSave]
+    [getStorageKey, onSave],
   )
 
   // Debounced save function
@@ -88,7 +88,7 @@ export const useAutoSave = (
         saveToStorage(dataToSave)
       }, debounceMs)
     },
-    [saveToStorage, debounceMs]
+    [saveToStorage, debounceMs],
   )
 
   // Manual save function
@@ -122,10 +122,9 @@ export const useAutoSave = (
         if (Date.now() - autoSaveData.timestamp < maxAge) {
           setLastSaved(new Date(autoSaveData.timestamp))
           return autoSaveData.data
-        } else {
-          // Remove expired data
-          localStorage.removeItem(getStorageKey())
         }
+        // Remove expired data
+        localStorage.removeItem(getStorageKey())
       }
     } catch (error) {
       console.error('Failed to restore auto-save:', error)

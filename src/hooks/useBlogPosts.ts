@@ -3,11 +3,11 @@
 import { useState } from 'react'
 import useSWR from 'swr'
 import {
-  blogApiService,
+  type BlogHomeResponse,
   type BlogPost,
   type BlogPostSummary,
-  type BlogHomeResponse,
   type BlogPostsResponse,
+  blogApiService,
 } from '../services/blogApi'
 
 // Cache key creators for blog data
@@ -23,7 +23,7 @@ const createBlogCacheKey = {
 }
 
 // Hook for homepage data
-export const useBlogHome = (domain: string = 'tech.blog') => {
+export const useBlogHome = (domain = 'tech.blog') => {
   const {
     data: homeData,
     error,
@@ -35,7 +35,7 @@ export const useBlogHome = (domain: string = 'tech.blog') => {
     {
       revalidateOnFocus: false,
       dedupingInterval: 60000, // Cache for 1 minute
-    }
+    },
   )
 
   return {
@@ -48,9 +48,9 @@ export const useBlogHome = (domain: string = 'tech.blog') => {
 
 // Hook for posts listing
 export const useBlogPosts = (
-  domain: string = 'tech.blog',
-  page: number = 1,
-  category?: string
+  domain = 'tech.blog',
+  page = 1,
+  category?: string,
 ) => {
   const {
     data: postsResponse,
@@ -63,7 +63,7 @@ export const useBlogPosts = (
     {
       revalidateOnFocus: false,
       dedupingInterval: 30000, // Cache for 30 seconds
-    }
+    },
   )
 
   return {
@@ -90,7 +90,7 @@ export const useBlogPost = (domain: string, slug: string) => {
     {
       revalidateOnFocus: false,
       dedupingInterval: 300000, // Cache single posts for 5 minutes
-    }
+    },
   )
 
   return {
@@ -114,7 +114,7 @@ export const useBlogCategory = (domain: string, category: string) => {
     {
       revalidateOnFocus: false,
       dedupingInterval: 60000, // Cache for 1 minute
-    }
+    },
   )
 
   return {
@@ -127,7 +127,7 @@ export const useBlogCategory = (domain: string, category: string) => {
 }
 
 // Hook for search functionality
-export const useBlogSearch = (domain: string = 'tech.blog') => {
+export const useBlogSearch = (domain = 'tech.blog') => {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchPage, setSearchPage] = useState(1)
   const [isSearching, setIsSearching] = useState(false)
@@ -145,7 +145,7 @@ export const useBlogSearch = (domain: string = 'tech.blog') => {
     {
       revalidateOnFocus: false,
       dedupingInterval: 60000, // Cache search results for 1 minute
-    }
+    },
   )
 
   // Search function
@@ -193,7 +193,7 @@ export const useBlogSearch = (domain: string = 'tech.blog') => {
 }
 
 // Utility hook that combines multiple blog data sources
-export const useBlogData = (domain: string = 'tech.blog') => {
+export const useBlogData = (domain = 'tech.blog') => {
   const {
     homeData,
     isLoading: homeLoading,

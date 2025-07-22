@@ -1,12 +1,17 @@
 use api::{
     AppState, analytics_middleware, auth_middleware, domain_middleware,
     handlers::{
-        HandlerModule, admin::AdminModule, analytics::AnalyticsModule, auth, blog::BlogModule,
+        HandlerModule,
+        admin::AdminModule,
+        analytics::{self, AnalyticsModule},
+        auth,
+        blog::BlogModule,
     },
 };
 use axum::{Router, middleware, response::Html};
-use std::sync::Arc;
+use std::{env, sync::Arc};
 use tokio::net::TcpListener;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 use utoipa::OpenApi;
 
 async fn swagger_ui_handler() -> Html<&'static str> {
@@ -45,6 +50,20 @@ async fn swagger_ui_handler() -> Html<&'static str> {
     )
 }
 
+async fn health_check(state: Arc<AppState>) -> axum::Json<serde_json::Value> {
+    // Check database connectivity
+    let db_status = match sqlx::query("SELECT 1").fetch_one(&state.db).await {
+        Ok(_) => "ok",
+        Err(_) => "error",
+    };
+
+    axum::Json(serde_json::json!({
+        "status": "ok",
+        "database": db_status,
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    }))
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables
@@ -64,8 +83,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = Arc::new(AppState { db: pool });
     let app = create_app(state);
 
-    let listener = TcpListener::bind("0.0.0.0:3000").await?;
-    println!("🚀 Server running on http://localhost:3000");
+    let port = env::var("PORT").unwrap_or_else(|_| "8000".to_string());
+    let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let bind_address = format!("{}:{}", host, port);
+
+    let listener = TcpListener::bind(&bind_address).await?;
+    println!("🚀 Server running on http://localhost:{}", port);
 
     axum::serve(listener, app).await?;
     Ok(())
@@ -80,7 +103,10 @@ pub fn create_app(state: Arc<AppState>) -> Router {
         )
         .route(
             "/health",
-            axum::routing::get(|| async { axum::Json(serde_json::json!({"status": "ok"})) }),
+            axum::routing::get({
+                let state = state.clone();
+                move || health_check(state)
+            }),
         )
         // Test route with just domain middleware
         .route(
@@ -122,10 +148,67 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                     domain_middleware,
                 )),
         )
-        // Mount analytics module (auth + domain required)
+        // Mount multi-domain analytics endpoints (auth only, no domain middleware)
         .nest(
-            AnalyticsModule::mount_path(),
-            AnalyticsModule::routes()
+            "/analytics",
+            Router::new()
+                .route(
+                    "/multi/overview",
+                    axum::routing::get(analytics::get_multi_overview),
+                )
+                .route(
+                    "/multi/traffic",
+                    axum::routing::get(analytics::get_multi_traffic_stats),
+                )
+                .route(
+                    "/multi/posts",
+                    axum::routing::get(analytics::get_multi_post_analytics),
+                )
+                .route(
+                    "/multi/search-terms",
+                    axum::routing::get(analytics::get_multi_search_analytics),
+                )
+                .route(
+                    "/multi/referrers",
+                    axum::routing::get(analytics::get_multi_referrer_stats),
+                )
+                .route(
+                    "/multi/real-time",
+                    axum::routing::get(analytics::get_multi_realtime_stats),
+                )
+                .route(
+                    "/multi/export",
+                    axum::routing::get(analytics::export_multi_data),
+                )
+                .layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    auth_middleware,
+                )),
+        )
+        // Mount legacy single-domain analytics endpoints (auth + domain required)
+        .nest(
+            "/analytics",
+            Router::new()
+                .route("/overview", axum::routing::get(analytics::get_overview))
+                .route("/traffic", axum::routing::get(analytics::get_traffic_stats))
+                .route("/posts", axum::routing::get(analytics::get_post_analytics))
+                .route(
+                    "/posts/{id}/stats",
+                    axum::routing::get(analytics::get_post_stats),
+                )
+                .route(
+                    "/search-terms",
+                    axum::routing::get(analytics::get_search_analytics),
+                )
+                .route(
+                    "/referrers",
+                    axum::routing::get(analytics::get_referrer_stats),
+                )
+                .route(
+                    "/real-time",
+                    axum::routing::get(analytics::get_realtime_stats),
+                )
+                .route("/export", axum::routing::get(analytics::export_data))
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     auth_middleware,
@@ -136,11 +219,30 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                 )),
         )
         // Add CORS layer for all routes
-        .layer(
-            tower_http::cors::CorsLayer::new()
-                .allow_origin(tower_http::cors::Any)
-                .allow_methods(tower_http::cors::Any)
-                .allow_headers(tower_http::cors::Any),
-        )
+        .layer({
+            let cors_origins = env::var("CORS_ORIGINS")
+                .unwrap_or_else(|_| "http://localhost:3000,http://localhost:5173".to_string());
+
+            let origins: Vec<_> = cors_origins
+                .split(',')
+                .map(|s| s.trim().parse().expect("Invalid CORS origin"))
+                .collect();
+
+            CorsLayer::new()
+                .allow_origin(AllowOrigin::list(origins))
+                .allow_methods([
+                    axum::http::Method::GET,
+                    axum::http::Method::POST,
+                    axum::http::Method::PUT,
+                    axum::http::Method::DELETE,
+                    axum::http::Method::OPTIONS,
+                ])
+                .allow_headers([
+                    axum::http::header::CONTENT_TYPE,
+                    axum::http::header::AUTHORIZATION,
+                    axum::http::HeaderName::from_static("x-domain"),
+                ])
+                .allow_credentials(true)
+        })
         .with_state(state)
 }

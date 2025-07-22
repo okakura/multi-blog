@@ -1,12 +1,7 @@
-import React, {
-  createContext,
-  useContext,
-  useMemo,
-  useState,
-  useEffect,
-} from 'react'
+import type React from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { domainConfigs } from '../config/domains'
-import type { DomainType, DomainConfig } from '../types'
+import type { DomainConfig, DomainType } from '../types'
 
 interface DomainContextValue {
   currentDomain: DomainType
@@ -44,7 +39,7 @@ export const DomainProvider: React.FC<{ children: React.ReactNode }> = ({
   }
 
   const [detectedDomain, setDetectedDomain] = useState<DomainType | undefined>(
-    detectSubdomain()
+    detectSubdomain(),
   )
   const [routeDomain, setRouteDomain] = useState<string | undefined>(undefined)
 
@@ -76,7 +71,7 @@ export const DomainProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const config = useMemo(
     () => domainConfigs[currentDomain] || domainConfigs.default,
-    [currentDomain]
+    [currentDomain],
   )
 
   const setDomain = (newDomain: DomainType) => {
@@ -86,7 +81,7 @@ export const DomainProvider: React.FC<{ children: React.ReactNode }> = ({
       // For subdomain mode, we'd need to redirect to the new subdomain
       // This is a complex operation that would typically involve server-side routing
       console.warn(
-        `Domain switching in subdomain mode requires server-side redirect to ${newDomain}`
+        `Domain switching in subdomain mode requires server-side redirect to ${newDomain}`,
       )
     } else {
       // For path mode, the parent component should handle navigation

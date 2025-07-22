@@ -80,7 +80,7 @@ export const showToast = {
       success: string | ((data: T) => string)
       error: string | ((error: any) => string)
     },
-    options?: ToastOptions
+    options?: ToastOptions,
   ) => {
     return toast.promise(promise, messages, {
       position: options?.position || 'top-right',
@@ -99,7 +99,7 @@ export const showToast = {
     options?: ToastOptions & {
       icon?: string
       style?: React.CSSProperties
-    }
+    },
   ) => {
     return toast(message, {
       icon: options?.icon,

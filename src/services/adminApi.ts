@@ -1,4 +1,11 @@
 // Admin API service for backend integration
+import { API_CONFIG, buildApiUrl } from '../config/dev'
+import type {
+  CreateUserRequest,
+  UpdateUserRequest,
+  User,
+  UsersResponse,
+} from '../types'
 
 export interface AdminPost {
   id: number
@@ -97,7 +104,33 @@ export interface UpdateDomainRequest {
 }
 
 class AdminApiService {
-  private baseUrl = 'http://localhost:3000/admin'
+  // Helper to build admin API URLs
+  private buildUrl(
+    endpoint: string,
+    params?: Record<string, string | number>
+  ): string {
+    // Remove leading slash if present to avoid double slashes
+    const cleanEndpoint = endpoint.startsWith('/')
+      ? endpoint.slice(1)
+      : endpoint
+    return buildApiUrl(`/admin/${cleanEndpoint}`, params)
+  }
+
+  // Helper to build analytics API URLs
+  private buildAnalyticsUrl(
+    endpoint: string,
+    params?: Record<string, string | number>,
+    useMultiDomain: boolean = true
+  ): string {
+    // Remove leading slash if present to avoid double slashes
+    const cleanEndpoint = endpoint.startsWith('/')
+      ? endpoint.slice(1)
+      : endpoint
+
+    // Use new multi-domain endpoints by default
+    const prefix = useMultiDomain ? '/analytics/multi' : '/analytics'
+    return buildApiUrl(`${prefix}/${cleanEndpoint}`, params)
+  }
 
   // Helper to get auth headers
   private getAuthHeaders(domain?: string): HeadersInit {
@@ -142,7 +175,7 @@ class AdminApiService {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/posts?${params}`, {
+      const response = await fetch(this.buildUrl('/posts', { page, limit }), {
         headers: this.getAuthHeaders(domain),
       })
 
@@ -177,7 +210,7 @@ class AdminApiService {
   // Get single post for admin
   async getPost(id: number, domain?: string): Promise<AdminPost> {
     try {
-      const response = await fetch(`${this.baseUrl}/posts/${id}`, {
+      const response = await fetch(this.buildUrl(`/posts/${id}`), {
         headers: this.getAuthHeaders(domain),
       })
 
@@ -198,7 +231,7 @@ class AdminApiService {
     domain?: string
   ): Promise<AdminPost> {
     try {
-      const response = await fetch(`${this.baseUrl}/posts`, {
+      const response = await fetch(this.buildUrl('/posts'), {
         method: 'POST',
         headers: this.getAuthHeaders(domain),
         body: JSON.stringify(data),
@@ -222,7 +255,7 @@ class AdminApiService {
     domain?: string
   ): Promise<AdminPost> {
     try {
-      const response = await fetch(`${this.baseUrl}/posts/${id}`, {
+      const response = await fetch(this.buildUrl(`/posts/${id}`), {
         method: 'PUT',
         headers: this.getAuthHeaders(domain),
         body: JSON.stringify(data),
@@ -242,7 +275,7 @@ class AdminApiService {
   // Delete post
   async deletePost(id: number, domain?: string): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/posts/${id}`, {
+      const response = await fetch(this.buildUrl(`/posts/${id}`), {
         method: 'DELETE',
         headers: this.getAuthHeaders(domain),
       })
@@ -256,11 +289,16 @@ class AdminApiService {
     }
   }
 
-  // Get analytics summary
+  // Get analytics summary - now uses multi-domain endpoint by default
   async getAnalytics(domain?: string): Promise<AnalyticsSummary> {
     try {
-      const response = await fetch(`${this.baseUrl}/analytics`, {
-        headers: this.getAuthHeaders(domain),
+      const params: Record<string, string | number> = {}
+      if (domain) {
+        params.domain_id = domain
+      }
+
+      const response = await fetch(this.buildAnalyticsUrl('overview', params), {
+        headers: this.getAuthHeaders(), // No domain header needed for multi-domain endpoint
       })
 
       if (!response.ok) {
@@ -274,10 +312,130 @@ class AdminApiService {
     }
   }
 
+  // Get analytics overview with days parameter - uses multi-domain endpoint
+  async getAnalyticsOverview(days: number = 30, domain?: string): Promise<any> {
+    try {
+      const params: Record<string, string | number> = { days }
+      if (domain) {
+        params.domain_id = domain
+      }
+
+      const url = this.buildAnalyticsUrl('overview', params)
+      const response = await fetch(url, {
+        headers: this.getAuthHeaders(), // No domain header needed
+      })
+
+      if (!response.ok) {
+        throw new Error(`Analytics overview failed: ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error fetching analytics overview:', error)
+      throw error
+    }
+  }
+
+  // Get traffic analytics - uses multi-domain endpoint
+  async getTrafficAnalytics(days: number = 30, domain?: string): Promise<any> {
+    try {
+      const params: Record<string, string | number> = { days }
+      if (domain) {
+        params.domain_id = domain
+      }
+
+      const url = this.buildAnalyticsUrl('traffic', params)
+      const response = await fetch(url, {
+        headers: this.getAuthHeaders(), // No domain header needed
+      })
+
+      if (!response.ok) {
+        throw new Error(`Traffic analytics failed: ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error fetching traffic analytics:', error)
+      throw error
+    }
+  }
+
+  // Get post analytics - uses multi-domain endpoint
+  async getPostAnalytics(days: number = 30, domain?: string): Promise<any> {
+    try {
+      const params: Record<string, string | number> = { days }
+      if (domain) {
+        params.domain_id = domain
+      }
+
+      const url = this.buildAnalyticsUrl('posts', params)
+      const response = await fetch(url, {
+        headers: this.getAuthHeaders(), // No domain header needed
+      })
+
+      if (!response.ok) {
+        throw new Error(`Post analytics failed: ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error fetching post analytics:', error)
+      throw error
+    }
+  }
+
+  // Get search term analytics - uses multi-domain endpoint
+  async getSearchAnalytics(days: number = 30, domain?: string): Promise<any> {
+    try {
+      const params: Record<string, string | number> = { days }
+      if (domain) {
+        params.domain_id = domain
+      }
+
+      const url = this.buildAnalyticsUrl('search-terms', params)
+      const response = await fetch(url, {
+        headers: this.getAuthHeaders(), // No domain header needed
+      })
+
+      if (!response.ok) {
+        throw new Error(`Search analytics failed: ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error fetching search analytics:', error)
+      throw error
+    }
+  }
+
+  // Get referrer analytics - uses multi-domain endpoint
+  async getReferrerAnalytics(days: number = 30, domain?: string): Promise<any> {
+    try {
+      const params: Record<string, string | number> = { days }
+      if (domain) {
+        params.domain_id = domain
+      }
+
+      const url = this.buildAnalyticsUrl('referrers', params)
+      const response = await fetch(url, {
+        headers: this.getAuthHeaders(), // No domain header needed
+      })
+
+      if (!response.ok) {
+        throw new Error(`Referrer analytics failed: ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error fetching referrer analytics:', error)
+      throw error
+    }
+  }
+
   // Get domain settings
   async getDomainSettings(domain?: string) {
     try {
-      const response = await fetch(`${this.baseUrl}/domain/settings`, {
+      const response = await fetch(this.buildUrl('/domain/settings'), {
         headers: this.getAuthHeaders(domain),
       })
 
@@ -297,7 +455,7 @@ class AdminApiService {
   // Update domain settings
   async updateDomainSettings(settings: any, domain?: string) {
     try {
-      const response = await fetch(`${this.baseUrl}/domain/settings`, {
+      const response = await fetch(this.buildUrl('/domain/settings'), {
         method: 'PUT',
         headers: this.getAuthHeaders(domain),
         body: JSON.stringify(settings),
@@ -319,7 +477,7 @@ class AdminApiService {
   // Domain Management Methods
   async getDomains(): Promise<Domain[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/domains`, {
+      const response = await fetch(this.buildUrl('/domains'), {
         headers: this.getAuthHeaders(),
       })
 
@@ -336,7 +494,7 @@ class AdminApiService {
 
   async getDomain(id: number): Promise<Domain> {
     try {
-      const response = await fetch(`${this.baseUrl}/domains/${id}`, {
+      const response = await fetch(this.buildUrl(`/domains/${id}`), {
         headers: this.getAuthHeaders(),
       })
 
@@ -353,7 +511,7 @@ class AdminApiService {
 
   async createDomain(data: CreateDomainRequest): Promise<Domain> {
     try {
-      const response = await fetch(`${this.baseUrl}/domains`, {
+      const response = await fetch(this.buildUrl('/domains'), {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(data),
@@ -375,7 +533,7 @@ class AdminApiService {
 
   async updateDomain(id: number, data: UpdateDomainRequest): Promise<Domain> {
     try {
-      const response = await fetch(`${this.baseUrl}/domains/${id}`, {
+      const response = await fetch(this.buildUrl(`/domains/${id}`), {
         method: 'PUT',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(data),
@@ -397,7 +555,7 @@ class AdminApiService {
 
   async deleteDomain(id: number): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/domains/${id}`, {
+      const response = await fetch(this.buildUrl(`/domains/${id}`), {
         method: 'DELETE',
         headers: this.getAuthHeaders(),
       })
@@ -417,7 +575,7 @@ class AdminApiService {
   // User Preferences Methods
   async getPreferences(): Promise<any> {
     try {
-      const response = await fetch(`${this.baseUrl}/profile/preferences`, {
+      const response = await fetch(this.buildUrl('/profile/preferences'), {
         headers: this.getAuthHeaders(),
       })
 
@@ -435,7 +593,7 @@ class AdminApiService {
 
   async savePreferences(preferences: any): Promise<any> {
     try {
-      const response = await fetch(`${this.baseUrl}/profile/preferences`, {
+      const response = await fetch(this.buildUrl('/profile/preferences'), {
         method: 'PUT',
         headers: this.getAuthHeaders(),
         body: JSON.stringify({ preferences }),
@@ -449,6 +607,95 @@ class AdminApiService {
       return data.preferences
     } catch (error) {
       console.error('Error saving preferences:', error)
+      throw error
+    }
+  }
+
+  // User Management Methods
+  async getUsers(page = 1, limit = 20): Promise<UsersResponse> {
+    try {
+      const response = await fetch(this.buildUrl('users', { page, limit }), {
+        headers: this.getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch users: ${response.statusText}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error fetching users:', error)
+      throw error
+    }
+  }
+
+  async getUser(id: number): Promise<User> {
+    try {
+      const response = await fetch(this.buildUrl(`users/${id}`), {
+        headers: this.getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user: ${response.statusText}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error fetching user:', error)
+      throw error
+    }
+  }
+
+  async createUser(data: CreateUserRequest): Promise<User> {
+    try {
+      const response = await fetch(this.buildUrl('users'), {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to create user: ${response.statusText}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error creating user:', error)
+      throw error
+    }
+  }
+
+  async updateUser(id: number, data: UpdateUserRequest): Promise<User> {
+    try {
+      const response = await fetch(this.buildUrl(`users/${id}`), {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to update user: ${response.statusText}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error updating user:', error)
+      throw error
+    }
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    try {
+      const response = await fetch(this.buildUrl(`users/${id}`), {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete user: ${response.statusText}`)
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error)
       throw error
     }
   }

@@ -5,47 +5,166 @@ A full-stack multi-tenant blog platform built with React (frontend) and Rust/Axu
 ## 🚀 Features
 
 - **Multi-tenant Architecture**: Support for multiple blog domains
-- **Modern Frontend**: React with TypeScript, Tailwind CSS, and Rsbuild
+- **Modern Frontend**: React 19 with TypeScript, Tailwind CSS, and Rsbuild
 - **Robust Backend**: Rust with Axum framework and PostgreSQL
 - **Authentication**: JWT-based auth with role-based access control
-- **Admin Dashboard**: Content management and analytics
+- **Admin Dashboard**: Content management, user management, and analytics
 - **Real-time Analytics**: Track page views, user engagement, and performance
 - **Domain Management**: Configure themes and settings per domain
+- **Rich Text Editor**: TipTap-based editor with image uploads
+- **Code Quality**: Biome for linting and formatting
 
 ## 🏗️ Architecture
 
 ### Frontend (`/`)
 
-- **Framework**: React 18 with TypeScript
-- **Styling**: Tailwind CSS
+- **Framework**: React 19 with TypeScript
+- **Styling**: Tailwind CSS v4
 - **Build Tool**: Rsbuild
-- **State Management**: SWR for data fetching
-- **Routing**: React Router
+- **State Management**: SWR for data fetching and caching
+- **Routing**: React Router v7
 - **Icons**: Lucide React
+- **Editor**: TipTap rich text editor
+- **Code Quality**: Biome for linting and formatting
 
 ### Backend (`/api`)
 
-- **Language**: Rust
-- **Framework**: Axum
-- **Database**: PostgreSQL with SQLx
-- **Authentication**: JWT tokens
-- **Docs**: OpenAPI/Swagger integration
+- **Language**: Rust 1.70+
+- **Framework**: Axum web framework
+- **Database**: PostgreSQL with SQLx migrations
+- **Authentication**: JWT tokens with bcrypt password hashing
+- **Documentation**: OpenAPI/Swagger integration
+- **CORS**: Configurable origins for security
+- **Environment**: dotenv configuration
 
-## 📦 Setup
+## 📦 Quick Start
 
-### Prerequisites
+### Using Makefile (Recommended)
 
-- Node.js 18+ and pnpm
-- Rust 1.70+
-- PostgreSQL 14+
+1. **Check prerequisites**:
 
-### Installation
+```bash
+make check-deps
+```
 
-1. **Clone the repository**:
+2. **Complete setup**:
+
+```bash
+make setup
+```
+
+3. **Start development servers**:
+
+```bash
+make dev-both
+```
+
+4. **View help for all commands**:
+
+```bash
+make help
+```
+
+### Manual Setup
+
+1. **Clone and install**:
 
 ```bash
 git clone <repository-url>
 cd multi-blog
+pnpm install
+```
+
+2. **Start database**:
+
+```bash
+make db-up
+# or manually: cd api && docker-compose up -d
+```
+
+3. **Configure environment**:
+
+```bash
+cd api
+cp .env.example .env
+# Edit .env with your configuration
+```
+
+4. **Run migrations and start servers**:
+
+```bash
+# Backend (terminal 1)
+cd api && cargo run --bin api
+
+# Frontend (terminal 2)
+pnpm dev
+```
+
+## 🌐 Services
+
+Once running, you can access:
+
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/swagger-ui
+- **Health Check**: http://localhost:8000/health
+- **PgAdmin**: http://localhost:8080
+
+## 🛠️ Development Commands
+
+### Makefile Commands
+
+| Command             | Description                     |
+| ------------------- | ------------------------------- |
+| `make help`         | Show all available commands     |
+| `make setup`        | Complete environment setup      |
+| `make dev-both`     | Start both servers concurrently |
+| `make dev-frontend` | Start only frontend server      |
+| `make dev-backend`  | Start only backend server       |
+| `make build`        | Build for production            |
+| `make test`         | Run all tests                   |
+| `make lint`         | Run linting                     |
+| `make format`       | Format code                     |
+| `make db-up`        | Start database containers       |
+| `make db-down`      | Stop database containers        |
+| `make clean`        | Clean build artifacts           |
+
+### Code Quality
+
+The project uses **Biome** for linting and formatting:
+
+```bash
+# Check and fix issues
+make lint-fix
+
+# Format code
+make format
+
+# Run all quality checks
+make check
+```
+
+## 🔐 Authentication
+
+### Default Users
+
+After running migrations, these test users are available:
+
+| Email             | Password    | Role           |
+| ----------------- | ----------- | -------------- |
+| john@example.com  | admin123    | platform_admin |
+| jane@example.com  | password123 | domain_user    |
+| mike@example.com  | demo123     | domain_user    |
+| sarah@example.com | test123     | domain_user    |
+| alex@example.com  | user123     | domain_user    |
+
+### JWT Configuration
+
+The backend uses JWT tokens for authentication. Configure in `api/.env`:
+
+```env
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:8080
 ```
 
 2. **Install frontend dependencies**:
@@ -86,109 +205,202 @@ cargo run # Migrations run automatically on startup
 pnpm dev
 ```
 
-**Backend** (runs on http://localhost:3000):
+## 🗄️ Database
+
+### PostgreSQL Setup
+
+The project uses PostgreSQL with Docker for development:
 
 ```bash
-cd api
-cargo run
+# Start database containers
+make db-up
+
+# View database logs
+make db-logs
+
+# Reset database (WARNING: destroys data)
+make db-reset
 ```
 
-### Demo Credentials
+### Database Schema
 
-- **Admin**: `admin@multi-blog.com` / `admin123`
-- **Editor**: `editor@multi-blog.com` / `editor123`
-- **Viewer**: `viewer@multi-blog.com` / `viewer123`
+The platform includes these main tables:
+
+- `users` - User accounts and authentication
+- `domains` - Multi-tenant domain configuration
+- `posts` - Blog post content
+- `user_domain_permissions` - Role-based access control
+- `analytics_events` - Usage tracking and metrics
+
+### Migrations
+
+Database migrations are automatically applied on server startup. To manually run:
+
+```bash
+cd api && cargo run --bin api
+```
 
 ## 📁 Project Structure
 
 ```
 multi-blog/
-├── src/                    # React frontend source
-│   ├── components/         # Reusable UI components
-│   ├── pages/             # Page components
-│   ├── contexts/          # React contexts (Auth, Domain)
-│   ├── hooks/             # Custom hooks
-│   └── services/          # API services
-├── api/                   # Rust backend
+├── src/                      # React frontend source
+│   ├── components/           # Reusable UI components
+│   │   ├── admin/           # Admin dashboard components
+│   │   └── modals/          # Modal dialogs
+│   ├── pages/               # Page components
+│   │   ├── admin/           # Admin pages
+│   │   └── auth/            # Authentication pages
+│   ├── contexts/            # React contexts (Auth, Domain)
+│   ├── hooks/               # Custom hooks and data fetching
+│   ├── services/            # API services and utilities
+│   ├── types/               # TypeScript type definitions
+│   └── utils/               # Helper functions
+├── api/                     # Rust backend
 │   ├── src/
-│   │   ├── handlers/      # Route handlers
-│   │   ├── lib.rs         # Core middleware and utilities
-│   │   └── main.rs        # Application entry point
-│   └── migrations/        # Database migrations
-├── public/                # Static assets
-└── docs/                  # Documentation
+│   │   ├── handlers/        # Route handlers (auth, admin, blog)
+│   │   ├── bin/             # Binary utilities
+│   │   ├── lib.rs           # Core middleware and utilities
+│   │   └── main.rs          # Application entry point
+│   ├── migrations/          # SQLx database migrations
+│   └── docker-compose.yml   # Database containers
+├── public/                  # Static assets
+├── Makefile                 # Development commands
+└── biome.json              # Code quality configuration
 ```
 
-## 🚢 Production Build
+## 🚢 Production Deployment
 
-**Frontend**:
+### Building for Production
 
 ```bash
-pnpm build
-pnpm preview  # Preview production build
+# Build both frontend and backend
+make build
+
+# Or individually
+pnpm build                    # Frontend
+cd api && cargo build --release  # Backend
 ```
 
-**Backend**:
+### Environment Configuration
 
-```bash
-cd api
-cargo build --release
+For production, ensure these environment variables are set:
+
+```env
+# Backend (api/.env)
+DATABASE_URL=postgresql://user:password@host:5432/dbname
+JWT_SECRET=your-very-secure-random-jwt-secret-key
+PORT=8000
+HOST=0.0.0.0
+CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+RUST_LOG=info
+
+# Frontend build
+VITE_API_URL=https://api.yourdomain.com
 ```
+
+### Docker Deployment
+
+The backend includes a docker-compose.yml for database services. For full deployment:
+
+1. Build the Rust binary: `cargo build --release`
+2. Build the frontend: `pnpm build`
+3. Deploy the `dist/` folder to your static hosting
+4. Deploy the backend binary to your server
+5. Set up PostgreSQL database with migrations
 
 ## 🔧 Configuration
 
-### Environment Variables
+### Domain Management
 
-Create `api/.env` with:
+The platform supports multiple domains configured through the admin interface:
 
-```env
-DATABASE_URL=postgresql://user:password@localhost/multi_blog
-JWT_SECRET=your-secret-key
-RUST_LOG=info
-```
+- **Domain Settings**: Configure per-domain themes and branding
+- **User Permissions**: Assign role-based access per domain
+- **Content Isolation**: Each domain has independent blog content
+- **Analytics**: Separate tracking and metrics per domain
 
-### Domain Configuration
+### Role-Based Access
 
-The platform supports multiple domains configured in the database. Each domain can have:
-
-- Custom themes and styling
-- Independent content categories
-- Separate analytics tracking
-- Domain-specific user permissions
-
-## 📊 API Documentation
-
-Visit `http://localhost:3000/swagger-ui` when the backend is running to explore the API documentation.
+- **platform_admin**: Full system access, user management
+- **domain_user**: Domain-specific access based on permissions
+- **Permissions per domain**: admin, editor, viewer
 
 ## 🧪 Testing
 
 ```bash
-# Frontend tests
-pnpm test
+# Run all tests
+make test
 
-# Backend tests
-cd api
-cargo test
+# Frontend tests only
+make test-frontend
+
+# Backend tests only
+make test-backend
+
+# Run specific test
+cd api && cargo test test_name
 ```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Port already in use**: Backend runs on port 8000, frontend on 5173
+2. **Database connection**: Ensure PostgreSQL is running via `make db-up`
+3. **JWT errors**: Check JWT_SECRET is set in `api/.env`
+4. **CORS issues**: Verify CORS_ORIGINS includes your frontend URL
+
+### Debug Commands
+
+```bash
+# Check service health
+make health
+
+# View application logs
+make logs
+
+# Check database connection
+make db-logs
+
+# Verify environment
+cd api && cargo run --bin api
+```
+
+### Getting Help
+
+1. Check the troubleshooting section above
+2. Review logs with `make logs`
+3. Ensure all prerequisites are installed with `make check-deps`
+4. Try a clean setup with `make clean && make setup`
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+2. Create a feature branch: `git checkout -b feature-name`
+3. Make your changes following the code style (use `make format`)
+4. Run tests: `make test`
+5. Run quality checks: `make check`
+6. Submit a pull request
+
+### Code Quality
+
+The project uses Biome for consistent code formatting and linting:
+
+```bash
+make lint        # Check for issues
+make lint-fix    # Auto-fix issues
+make format      # Format code
+make check       # Run all quality checks
+```
+
+## 📚 API Documentation
+
+When the backend is running, explore the interactive API documentation:
+
+- **Swagger UI**: http://localhost:8000/swagger-ui
+- **OpenAPI JSON**: http://localhost:8000/api-docs/openapi.json
 
 ## 📝 License
 
-This project is licensed under the MIT License.
-
-```
-
-## Learn more
-
-To learn more about Rsbuild, check out the following resources:
-
-- [Rsbuild documentation](https://rsbuild.rs) - explore Rsbuild features and APIs.
-- [Rsbuild GitHub repository](https://github.com/web-infra-dev/rsbuild) - your feedback and contributions are welcome!
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

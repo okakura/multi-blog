@@ -10,8 +10,8 @@ export const fetcher = async (url: string, domain?: string) => {
 
   // Route to appropriate API service method based on endpoint
   if (pathname === '/posts') {
-    const page = parseInt(searchParams.get('page') || '1', 10)
-    const limit = parseInt(searchParams.get('limit') || '10', 10)
+    const page = Number.parseInt(searchParams.get('page') || '1', 10)
+    const limit = Number.parseInt(searchParams.get('limit') || '10', 10)
     return apiService.getPosts(domain!, page, limit)
   }
 
