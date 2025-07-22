@@ -1,3 +1,7 @@
+# React Profiler (frontend only)
+dev-profiler: ## Start frontend in React profiling mode (for Profiler)
+	@echo "🌐 Starting frontend in React Profiler mode..."
+	PNPM_FILTER_PROFILING=1 PROFILING=true pnpm dev
 # Multi-Blog Platform Development Makefile
 # ========================================
 
@@ -141,6 +145,32 @@ db-migrate: ## Run database migrations
 docker-up: db-up ## Alias for db-up
 
 docker-down: db-down ## Alias for db-down
+
+docker-start: ## Start all Docker services (database + cache)
+	@echo "🐳 Starting all Docker services..."
+	cd api && docker-compose up -d
+	@echo "✅ All Docker services started!"
+	@echo "🗄️  PostgreSQL: localhost:5432"
+	@echo "📊 PgAdmin: http://localhost:8080"
+	@echo "🔴 Redis: localhost:6379"
+
+docker-stop: ## Stop all Docker services
+	@echo "🛑 Stopping all Docker services..."
+	cd api && docker-compose down
+	@echo "✅ All Docker services stopped!"
+
+docker-restart: ## Restart all Docker services
+	@echo "🔄 Restarting all Docker services..."
+	cd api && docker-compose restart
+	@echo "✅ All Docker services restarted!"
+
+docker-logs: ## Show logs from all Docker services
+	@echo "📋 Showing Docker service logs..."
+	cd api && docker-compose logs -f
+
+docker-status: ## Show status of Docker services
+	@echo "📊 Docker service status:"
+	cd api && docker-compose ps
 
 # Cleanup
 clean: ## Clean build artifacts

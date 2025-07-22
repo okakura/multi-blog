@@ -1,4 +1,5 @@
 // src/handlers/admin.rs
+use crate::services::session_tracking::SessionTracker;
 use crate::{AppState, DomainContext, UserContext};
 use axum::{
     Extension, Router,
@@ -978,6 +979,28 @@ async fn get_admin_analytics_overview(
     let (start_date, end_date) = parse_admin_date_range(&query);
     let previous_start = start_date - (end_date - start_date);
 
+    // Get real session duration data (fallback to mock while migration is pending)
+    let current_avg_session_duration = match SessionTracker::get_average_session_duration(
+        &state.db, start_date, end_date, None, // Cross-domain analytics
+    )
+    .await
+    {
+        Ok(duration) => duration,
+        Err(_) => 3.5, // Fallback to mock value if session table doesn't exist yet
+    };
+
+    let previous_avg_session_duration = match SessionTracker::get_average_session_duration(
+        &state.db,
+        previous_start,
+        start_date,
+        None, // Cross-domain analytics
+    )
+    .await
+    {
+        Ok(duration) => duration,
+        Err(_) => 3.2, // Fallback to mock value if session table doesn't exist yet
+    };
+
     // Current period stats across all domains
     let current_stats = sqlx::query!(
         r#"
@@ -1120,14 +1143,14 @@ async fn get_admin_analytics_overview(
             unique_visitors: current_stats.unique_visitors.unwrap_or(0),
             post_views: current_stats.post_views.unwrap_or(0),
             searches: current_stats.searches.unwrap_or(0),
-            avg_session_duration: 3.5, // Mock value for now
+            avg_session_duration: current_avg_session_duration,
         },
         previous_period: AdminPeriodStats {
             page_views: previous_stats.page_views.unwrap_or(0),
             unique_visitors: previous_stats.unique_visitors.unwrap_or(0),
             post_views: previous_stats.post_views.unwrap_or(0),
             searches: previous_stats.searches.unwrap_or(0),
-            avg_session_duration: 3.2, // Mock value for now
+            avg_session_duration: previous_avg_session_duration,
         },
         change_percent: AdminChangePercent {
             page_views: page_views_change,
@@ -1213,12 +1236,21 @@ async fn get_admin_traffic_stats(
         })
         .collect();
 
-    // Device breakdown (mock data for now)
+    // Device breakdown (real data from sessions, with fallback to mock)
+    let (mobile, desktop, tablet, unknown) = match SessionTracker::get_device_breakdown(
+        &state.db, start_date, end_date, None, // Cross-domain for admin
+    )
+    .await
+    {
+        Ok(breakdown) => breakdown,
+        Err(_) => (45, 35, 15, 5), // Fallback to mock values if session table doesn't exist yet
+    };
+
     let device_breakdown = AdminDeviceBreakdown {
-        mobile: 45,
-        desktop: 35,
-        tablet: 15,
-        unknown: 5,
+        mobile: mobile as i64,
+        desktop: desktop as i64,
+        tablet: tablet as i64,
+        unknown: unknown as i64,
     };
 
     Ok(Json(AdminTrafficResponse {

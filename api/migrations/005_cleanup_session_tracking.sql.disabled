@@ -1,0 +1,8 @@
+-- Clean up any partial migration artifacts
+DROP TABLE IF EXISTS user_sessions CASCADE;
+DROP FUNCTION IF EXISTS update_session_activity() CASCADE;
+DROP FUNCTION IF EXISTS calculate_session_duration(UUID) CASCADE;  
+DROP FUNCTION IF EXISTS end_session(UUID) CASCADE;
+
+-- Remove session_id column if it was added
+ALTER TABLE analytics_events DROP COLUMN IF EXISTS session_id;

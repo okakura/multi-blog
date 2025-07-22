@@ -15,10 +15,9 @@ import {
 } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useState } from 'react'
-import { mockAdminApi } from '../../../services/mockAdminApi'
+import { adminApiService, type Domain } from '../../../services/adminApi'
 import type {
   CreateUserRequest,
-  Domain,
   DomainPermission,
   UpdateUserRequest,
   User,
@@ -79,7 +78,7 @@ const UnifiedUserModal: React.FC<UnifiedUserModalProps> = ({
       setIsLoading(true)
 
       // Load domains
-      const domainsData = await mockAdminApi.getDomains()
+      const domainsData = await adminApiService.getDomains()
       setDomains(domainsData)
 
       // Initialize form data
@@ -547,13 +546,8 @@ const UnifiedUserModal: React.FC<UnifiedUserModalProps> = ({
                                 {domain.name}
                               </h5>
                               <p className="text-sm text-gray-600 dark:text-gray-400">
-                                {domain.url}
+                                {domain.hostname}
                               </p>
-                              {domain.description && (
-                                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                  {domain.description}
-                                </p>
-                              )}
                             </div>
                             <div className="flex items-center space-x-2">
                               {getRoleIcon(permissions[domain.id] || 'none')}

@@ -10,20 +10,6 @@ export interface Post {
   slug: string
 }
 
-export interface DomainTheme {
-  primary: string
-  secondary: string
-  accent: string
-}
-
-export interface DomainConfig {
-  name: string
-  tagline: string
-  theme: DomainTheme
-  categories: string[]
-  logo: string
-}
-
 export interface NewPostForm {
   title: string
   author: string
@@ -31,14 +17,6 @@ export interface NewPostForm {
   excerpt: string
   content: string
 }
-
-export type DomainType =
-  | 'tech.blog'
-  | 'lifestyle.blog'
-  | 'business.blog'
-  | 'default'
-
-export type PostsData = Record<DomainType, Post[]>
 
 // User Management Types
 export interface User {

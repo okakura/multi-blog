@@ -1,9 +1,7 @@
 // Hook for managing admin users with SWR and API integration
 import { useState } from 'react'
 import useSWR from 'swr'
-import { shouldUseMockApi } from '../config/dev'
 import { adminApiService } from '../services/adminApi'
-import { mockAdminApi } from '../services/mockAdminApi'
 import { performanceMetrics } from '../services/performanceMetrics'
 import type {
   CreateUserRequest,
@@ -12,8 +10,8 @@ import type {
   UsersResponse,
 } from '../types'
 
-// Use mock API in development until backend middleware is fixed
-const API_SERVICE = shouldUseMockApi() ? mockAdminApi : adminApiService
+
+const API_SERVICE =  adminApiService
 
 // Cache key creators
 const createUserCacheKey = {

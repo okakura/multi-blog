@@ -1,0 +1,31 @@
+{
+  // Extensions that should be ENABLED for this workspace
+  "recommendations": [
+    // Essential for React/TypeScript Development
+    "ms-vscode.vscode-typescript-next",
+    "bradlc.vscode-tailwindcss",
+    "biomejs.biome",
+
+    // Git (lightweight essentials only)
+    "eamodio.gitlens",
+    "github.vscode-pull-request-github",
+
+    // Rust Development (for your backend)
+    "rust-lang.rust-analyzer",
+    "vadimcn.vscode-lldb",
+
+    // Minimal development tools
+    "ms-vscode.vscode-js-debug",
+    "ms-vscode.vscode-json",
+
+    // Additional tools for better development experience
+    "streetsidesoftware.code-spell-checker",
+    "ms-vscode.hexeditor",
+    "humao.rest-client",
+  ],
+  "unwantedRecommendations": [
+    // Disable heavy extensions that are not needed
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+  ]
+}

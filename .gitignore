@@ -42,6 +42,7 @@ api/Cargo.lock
 *.sqlite
 *.sqlite3
 *.db
+.sqlx
 
 # IDE files
 .vscode/*

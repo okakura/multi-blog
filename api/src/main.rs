@@ -6,6 +6,7 @@ use api::{
         analytics::{self, AnalyticsModule},
         auth,
         blog::BlogModule,
+        session,
     },
 };
 use axum::{Router, middleware, response::Html};
@@ -129,6 +130,19 @@ pub fn create_app(state: Arc<AppState>) -> Router {
         // Mount blog module (public routes with domain + analytics middleware)
         .merge(
             BlogModule::routes()
+                .layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    domain_middleware,
+                ))
+                .layer(middleware::from_fn(analytics_middleware)),
+        )
+        // Mount session tracking (public routes with domain + analytics middleware)
+        .nest(
+            "/session",
+            Router::new()
+                .route("/create", axum::routing::post(session::create_session))
+                .route("/update", axum::routing::post(session::update_session))
+                .route("/end", axum::routing::post(session::end_session))
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     domain_middleware,

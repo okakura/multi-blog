@@ -9,6 +9,7 @@ use sqlx::PgPool;
 use std::sync::Arc;
 
 pub mod handlers;
+pub mod services;
 
 #[cfg(test)]
 pub mod test_utils;
