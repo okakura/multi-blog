@@ -1,17 +1,21 @@
 // src/handlers/admin.rs
+use crate::extractors::{
+    RequireDomainAdmin, RequireDomainEditor, RequireDomainViewer, RequirePlatformAdmin,
+};
 use crate::services::session_tracking::SessionTracker;
-use crate::{AppState, DomainContext, UserContext};
+use crate::utils::FilteredQueryBuilder;
+use crate::{AppState, UserContext};
 use axum::{
     Extension, Router,
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
-    routing::{delete, get, post, put},
+    routing::get,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::types::BigDecimal;
-use std::{str::FromStr, sync::Arc};
+use sqlx::Row;
+use std::sync::Arc;
 
 pub struct AdminModule;
 
@@ -72,6 +76,8 @@ struct AdminPostResponse {
     category: Option<String>,
     slug: String,
     status: Option<String>,
+    domain_id: i32,
+    domain_name: Option<String>,
     created_at: Option<chrono::DateTime<chrono::Utc>>,
     updated_at: Option<chrono::DateTime<chrono::Utc>>,
 }
@@ -86,115 +92,96 @@ struct UserPreferencesResponse {
     preferences: serde_json::Value,
 }
 
-// Check if user has permission for this domain
-fn check_domain_permission(
-    user: &UserContext,
-    domain_id: i32,
-    required_role: &str,
-) -> Result<(), StatusCode> {
-    if user.role == "platform_admin" {
-        return Ok(());
-    }
-
-    let permission = user
-        .domain_permissions
-        .iter()
-        .find(|p| p.domain_id == domain_id)
-        .ok_or(StatusCode::FORBIDDEN)?;
-
-    match (required_role, permission.role.as_str()) {
-        ("viewer", _) => Ok(()),
-        ("editor", "editor" | "admin") => Ok(()),
-        ("admin", "admin") => Ok(()),
-        _ => Err(StatusCode::FORBIDDEN),
-    }
-}
-
 #[derive(Deserialize)]
 struct AdminPostsQuery {
     domain: Option<String>,
 }
-
 async fn list_admin_posts(
-    Extension(domain): Extension<DomainContext>,
-    Extension(user): Extension<UserContext>,
+    RequireDomainViewer(auth): RequireDomainViewer,
     State(state): State<Arc<AppState>>,
     Query(query): Query<AdminPostsQuery>,
 ) -> Result<Json<Vec<AdminPostResponse>>, StatusCode> {
     // If domain=all is requested, fetch from all domains the user has access to
-    if query.domain.as_deref() == Some("all") {
-        // Get all domains the user has access to
-        let user_domains = sqlx::query!(
-            r#"
-            SELECT domain_id as id
-            FROM user_domain_permissions
-            WHERE user_id = $1
-            "#,
-            user.id
-        )
-        .fetch_all(&state.db)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let posts = if query.domain.as_deref() == Some("all") {
+        #[derive(sqlx::FromRow)]
+        struct DomainId {
+            id: i32,
+        }
 
-        if user_domains.is_empty() {
+        let domain_ids: Vec<i32> = if auth.user.role == "platform_admin" {
+            sqlx::query_as!(DomainId, "SELECT id as id FROM domains")
+                .fetch_all(&state.db)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+                .into_iter()
+                .map(|d| d.id)
+                .collect()
+        } else {
+            sqlx::query_as!(
+                DomainId,
+                "SELECT domain_id as \"id!\" FROM user_domain_permissions WHERE user_id = $1",
+                auth.user.id
+            )
+            .fetch_all(&state.db)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+            .into_iter()
+            .map(|d| d.id)
+            .collect()
+        };
+
+        if domain_ids.is_empty() {
             return Ok(Json(vec![]));
         }
 
-        let domain_ids: Vec<i32> = user_domains.into_iter().filter_map(|d| d.id).collect();
-
-        // Build dynamic query for multiple domains
-        let placeholders: Vec<String> = (1..=domain_ids.len()).map(|i| format!("${}", i)).collect();
+        let placeholders: Vec<String> = (1..=domain_ids.len()).map(|i| format!("${i}")).collect();
         let query_str = format!(
             r#"
-            SELECT id, title, content, author, category, slug, status, created_at, updated_at
-            FROM posts 
-            WHERE domain_id IN ({})
-            ORDER BY updated_at DESC
+            SELECT p.id, p.title, p.content, p.author, p.category, p.slug, p.status, 
+                   p.domain_id as "domain_id!", d.name as "domain_name?", p.created_at, p.updated_at
+            FROM posts p
+            JOIN domains d ON p.domain_id = d.id
+            WHERE p.domain_id IN ({})
+            ORDER BY p.updated_at DESC
             "#,
             placeholders.join(", ")
         );
 
         let mut query_builder = sqlx::query_as::<_, AdminPostResponse>(&query_str);
-        for domain_id in domain_ids {
+        for domain_id in &domain_ids {
             query_builder = query_builder.bind(domain_id);
         }
-
-        let posts = query_builder
+        query_builder
             .fetch_all(&state.db)
             .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-        return Ok(Json(posts));
-    }
-
-    // Default behavior: single domain
-    check_domain_permission(&user, domain.id, "viewer")?;
-
-    let posts = sqlx::query_as!(
-        AdminPostResponse,
-        r#"
-        SELECT id, title, content, author, category, slug, status, created_at, updated_at
-        FROM posts 
-        WHERE domain_id = $1
-        ORDER BY updated_at DESC
-        "#,
-        domain.id
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    } else {
+        // Single domain: permission already checked by middleware/extractor
+        sqlx::query_as!(
+            AdminPostResponse,
+            r#"
+            SELECT p.id, p.title, p.content, p.author, p.category, p.slug, p.status, 
+                   p.domain_id as "domain_id!", d.name as "domain_name?", p.created_at, p.updated_at
+            FROM posts p
+            JOIN domains d ON p.domain_id = d.id
+            WHERE p.domain_id = $1
+            ORDER BY p.updated_at DESC
+            "#,
+            auth.domain.id
+        )
+        .fetch_all(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    };
 
     Ok(Json(posts))
 }
 
 async fn create_post(
-    Extension(domain): Extension<DomainContext>,
-    Extension(user): Extension<UserContext>,
+    RequireDomainEditor(auth): RequireDomainEditor,
     State(state): State<Arc<AppState>>,
     Json(payload): Json<CreatePostRequest>,
 ) -> Result<Json<AdminPostResponse>, StatusCode> {
-    check_domain_permission(&user, domain.id, "editor")?;
-
     let slug = payload.slug.unwrap_or_else(|| {
         payload
             .title
@@ -212,12 +199,13 @@ async fn create_post(
         r#"
         INSERT INTO posts (domain_id, title, content, author, category, slug, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id, title, content, author, category, slug, status, created_at, updated_at
+        RETURNING id, title, content, author, category, slug, status, 
+                  domain_id as "domain_id!", NULL as "domain_name?", created_at, updated_at
         "#,
-        domain.id,
+        auth.domain.id,
         payload.title,
         payload.content,
-        user.name,
+        auth.user.name,
         payload.category,
         slug,
         status
@@ -230,22 +218,21 @@ async fn create_post(
 }
 
 async fn get_admin_post(
-    Extension(domain): Extension<DomainContext>,
-    Extension(user): Extension<UserContext>,
+    RequireDomainViewer(auth): RequireDomainViewer,
     State(state): State<Arc<AppState>>,
     Path(id): Path<i32>,
 ) -> Result<Json<AdminPostResponse>, StatusCode> {
-    check_domain_permission(&user, domain.id, "viewer")?;
-
     let post = sqlx::query_as!(
         AdminPostResponse,
         r#"
-        SELECT id, title, content, author, category, slug, status, created_at, updated_at
-        FROM posts 
-        WHERE id = $1 AND domain_id = $2
+        SELECT p.id, p.title, p.content, p.author, p.category, p.slug, p.status, 
+               p.domain_id as "domain_id!", d.name as "domain_name?", p.created_at, p.updated_at
+        FROM posts p
+        JOIN domains d ON p.domain_id = d.id
+        WHERE p.id = $1 AND p.domain_id = $2
         "#,
         id,
-        domain.id
+        auth.domain.id
     )
     .fetch_optional(&state.db)
     .await
@@ -256,14 +243,11 @@ async fn get_admin_post(
 }
 
 async fn update_post(
-    Extension(domain): Extension<DomainContext>,
-    Extension(user): Extension<UserContext>,
+    RequireDomainEditor(auth): RequireDomainEditor,
     State(state): State<Arc<AppState>>,
     Path(id): Path<i32>,
     Json(payload): Json<CreatePostRequest>,
 ) -> Result<Json<AdminPostResponse>, StatusCode> {
-    check_domain_permission(&user, domain.id, "editor")?;
-
     let slug = payload.slug.unwrap_or_else(|| {
         payload
             .title
@@ -282,10 +266,11 @@ async fn update_post(
         UPDATE posts 
         SET title = $3, content = $4, category = $5, slug = $6, status = $7, updated_at = NOW()
         WHERE id = $1 AND domain_id = $2
-        RETURNING id, title, content, author, category, slug, status, created_at, updated_at
+        RETURNING id, title, content, author, category, slug, status, 
+                  domain_id as "domain_id!", NULL as "domain_name?", created_at, updated_at
         "#,
         id,
-        domain.id,
+        auth.domain.id,
         payload.title,
         payload.content,
         payload.category,
@@ -301,17 +286,14 @@ async fn update_post(
 }
 
 async fn delete_post(
-    Extension(domain): Extension<DomainContext>,
-    Extension(user): Extension<UserContext>,
+    RequireDomainAdmin(auth): RequireDomainAdmin,
     State(state): State<Arc<AppState>>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, StatusCode> {
-    check_domain_permission(&user, domain.id, "admin")?;
-
     let rows_affected = sqlx::query!(
         "DELETE FROM posts WHERE id = $1 AND domain_id = $2",
         id,
-        domain.id
+        auth.domain.id
     )
     .execute(&state.db)
     .await
@@ -326,12 +308,9 @@ async fn delete_post(
 }
 
 async fn get_analytics_summary(
-    Extension(domain): Extension<DomainContext>,
-    Extension(user): Extension<UserContext>,
+    RequireDomainViewer(auth): RequireDomainViewer,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    check_domain_permission(&user, domain.id, "viewer")?;
-
     // Get comprehensive analytics for the dashboard
     let summary = sqlx::query!(
         r#"
@@ -343,7 +322,7 @@ async fn get_analytics_summary(
         FROM analytics_events 
         WHERE domain_id = $1 AND created_at >= NOW() - INTERVAL '30 days'
         "#,
-        domain.id
+        auth.domain.id
     )
     .fetch_one(&state.db)
     .await
@@ -352,7 +331,7 @@ async fn get_analytics_summary(
     // Get total posts count for this domain
     let posts_count = sqlx::query!(
         "SELECT COUNT(*) as total FROM posts WHERE domain_id = $1",
-        domain.id
+        auth.domain.id
     )
     .fetch_one(&state.db)
     .await
@@ -363,7 +342,7 @@ async fn get_analytics_summary(
     // Get posts created this month for this domain
     let posts_this_month = sqlx::query!(
         "SELECT COUNT(*) as total FROM posts WHERE domain_id = $1 AND created_at >= DATE_TRUNC('month', NOW())",
-        domain.id
+        auth.domain.id
     )
     .fetch_one(&state.db)
     .await
@@ -421,35 +400,29 @@ async fn get_analytics_summary(
 }
 
 async fn get_domain_settings(
-    Extension(domain): Extension<DomainContext>,
-    Extension(user): Extension<UserContext>,
+    RequireDomainViewer(auth): RequireDomainViewer,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    check_domain_permission(&user, domain.id, "viewer")?;
-
     // Return comprehensive domain settings including all stored configuration
     let settings = serde_json::json!({
-        "id": domain.id,
-        "hostname": domain.hostname,
-        "name": domain.name,
-        "theme_config": domain.theme_config,
-        "categories": domain.categories,
-        "seo_config": domain.theme_config.get("seo_config").unwrap_or(&serde_json::json!({})),
-        "analytics_config": domain.theme_config.get("analytics_config").unwrap_or(&serde_json::json!({})),
-        "content_config": domain.theme_config.get("content_config").unwrap_or(&serde_json::json!({})),
-        "social_config": domain.theme_config.get("social_config").unwrap_or(&serde_json::json!({}))
+        "id": auth.domain.id,
+        "hostname": auth.domain.hostname,
+        "name": auth.domain.name,
+        "theme_config": auth.domain.theme_config,
+        "categories": auth.domain.categories,
+        "seo_config": auth.domain.theme_config.get("seo_config").unwrap_or(&serde_json::json!({})),
+        "analytics_config": auth.domain.theme_config.get("analytics_config").unwrap_or(&serde_json::json!({})),
+        "content_config": auth.domain.theme_config.get("content_config").unwrap_or(&serde_json::json!({})),
+        "social_config": auth.domain.theme_config.get("social_config").unwrap_or(&serde_json::json!({}))
     });
 
     Ok(Json(settings))
 }
 
 async fn update_domain_settings(
-    Extension(domain): Extension<DomainContext>,
-    Extension(user): Extension<UserContext>,
+    RequireDomainAdmin(auth): RequireDomainAdmin,
     State(state): State<Arc<AppState>>,
     Json(payload): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    check_domain_permission(&user, domain.id, "admin")?;
-
     // Extract individual settings from payload
     let theme_config = payload
         .get("theme_config")
@@ -490,7 +463,7 @@ async fn update_domain_settings(
     // Update the domain with all settings
     sqlx::query!(
         "UPDATE domains SET theme_config = $2, categories = $3, updated_at = NOW() WHERE id = $1",
-        domain.id,
+        auth.domain.id,
         &comprehensive_settings,
         categories
     )
@@ -535,14 +508,9 @@ struct UpdateDomainRequest {
 
 // Domain Management Handlers
 async fn list_domains(
-    Extension(user): Extension<UserContext>,
+    _auth: RequirePlatformAdmin,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<DomainResponse>>, StatusCode> {
-    // Only super admins can list all domains
-    if user.role != "platform_admin" {
-        return Err(StatusCode::FORBIDDEN);
-    }
-
     let domains = sqlx::query_as!(
         DomainResponse,
         r#"
@@ -572,18 +540,10 @@ async fn list_domains(
 }
 
 async fn get_domain(
-    Extension(user): Extension<UserContext>,
+    RequireDomainViewer(auth): RequireDomainViewer,
     State(state): State<Arc<AppState>>,
-    Path(id): Path<i32>,
+    Path(_id): Path<i32>,
 ) -> Result<Json<DomainResponse>, StatusCode> {
-    // Only super admins can view any domain, or users with permissions for this specific domain
-    if user.role != "platform_admin" {
-        let has_permission = user.domain_permissions.iter().any(|p| p.domain_id == id);
-        if !has_permission {
-            return Err(StatusCode::FORBIDDEN);
-        }
-    }
-
     let domain = sqlx::query_as!(
         DomainResponse,
         r#"
@@ -604,7 +564,7 @@ async fn get_domain(
         WHERE d.id = $1
         GROUP BY d.id, d.hostname, d.name, d.theme_config, d.categories, d.created_at, d.updated_at
         "#,
-        id
+        auth.domain.id
     )
     .fetch_optional(&state.db)
     .await
@@ -615,15 +575,10 @@ async fn get_domain(
 }
 
 async fn create_domain(
-    Extension(user): Extension<UserContext>,
+    _auth: RequirePlatformAdmin,
     State(state): State<Arc<AppState>>,
     Json(payload): Json<CreateDomainRequest>,
 ) -> Result<Json<DomainResponse>, StatusCode> {
-    // Only super admins can create domains
-    if user.role != "platform_admin" {
-        return Err(StatusCode::FORBIDDEN);
-    }
-
     // Validate hostname uniqueness
     let existing = sqlx::query!(
         "SELECT id FROM domains WHERE hostname = $1",
@@ -674,16 +629,11 @@ async fn create_domain(
 }
 
 async fn update_domain(
-    Extension(user): Extension<UserContext>,
+    _auth: RequirePlatformAdmin,
     State(state): State<Arc<AppState>>,
     Path(id): Path<i32>,
     Json(payload): Json<UpdateDomainRequest>,
 ) -> Result<Json<DomainResponse>, StatusCode> {
-    // Only super admins can update domains
-    if user.role != "platform_admin" {
-        return Err(StatusCode::FORBIDDEN);
-    }
-
     // Check if domain exists
     let existing = sqlx::query!("SELECT hostname FROM domains WHERE id = $1", id)
         .fetch_optional(&state.db)
@@ -691,21 +641,21 @@ async fn update_domain(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
 
-    // If hostname is being updated, check for uniqueness
-    if let Some(ref new_hostname) = payload.hostname {
-        if new_hostname != &existing.hostname {
-            let hostname_taken = sqlx::query!(
-                "SELECT id FROM domains WHERE hostname = $1 AND id != $2",
-                new_hostname,
-                id
-            )
-            .fetch_optional(&state.db)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    // If hostname is being updated and changed, check for uniqueness
+    if let Some(ref new_hostname) = payload.hostname
+        && new_hostname != &existing.hostname
+    {
+        let hostname_taken = sqlx::query!(
+            "SELECT id FROM domains WHERE hostname = $1 AND id != $2",
+            new_hostname,
+            id
+        )
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-            if hostname_taken.is_some() {
-                return Err(StatusCode::CONFLICT);
-            }
+        if hostname_taken.is_some() {
+            return Err(StatusCode::CONFLICT);
         }
     }
 
@@ -716,19 +666,19 @@ async fn update_domain(
 
     if let Some(hostname) = payload.hostname {
         param_count += 1;
-        query.push_str(&format!(", hostname = ${}", param_count));
+        query.push_str(&format!(", hostname = ${param_count}"));
         params.push(hostname);
     }
 
     if let Some(name) = payload.name {
         param_count += 1;
-        query.push_str(&format!(", name = ${}", param_count));
+        query.push_str(&format!(", name = ${param_count}"));
         params.push(name);
     }
 
     if let Some(theme_config) = payload.theme_config {
         param_count += 1;
-        query.push_str(&format!(", theme_config = ${}", param_count));
+        query.push_str(&format!(", theme_config = ${param_count}"));
         params.push(serde_json::to_string(&theme_config).unwrap());
     }
 
@@ -736,12 +686,12 @@ async fn update_domain(
         param_count += 1;
         let categories_json =
             serde_json::to_value(categories).unwrap_or_else(|_| serde_json::json!([]));
-        query.push_str(&format!(", categories = ${}", param_count));
+        query.push_str(&format!(", categories = ${param_count}"));
         params.push(serde_json::to_string(&categories_json).unwrap());
     }
 
     param_count += 1;
-    query.push_str(&format!(" WHERE id = ${}", param_count));
+    query.push_str(&format!(" WHERE id = ${param_count}"));
 
     // Execute the update
     let mut query_builder = sqlx::query(&query);
@@ -786,15 +736,10 @@ async fn update_domain(
 }
 
 async fn delete_domain(
-    Extension(user): Extension<UserContext>,
+    _auth: RequirePlatformAdmin,
     State(state): State<Arc<AppState>>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, StatusCode> {
-    // Only super admins can delete domains
-    if user.role != "platform_admin" {
-        return Err(StatusCode::FORBIDDEN);
-    }
-
     // Check if domain has posts
     let posts_count = sqlx::query!(
         "SELECT COUNT(*) as count FROM posts WHERE domain_id = $1",
@@ -960,46 +905,30 @@ fn parse_admin_date_range(query: &AdminAnalyticsQuery) -> (DateTime<Utc>, DateTi
 
     // Otherwise, use the days parameter (default behavior)
     let end_date = Utc::now();
-    let days = query.days.unwrap_or(30).min(365).max(1);
+    let days = query.days.unwrap_or(30).clamp(1, 365);
     let start_date = end_date - Duration::days(days as i64);
     (start_date, end_date)
 }
 
 // Admin Analytics Overview (aggregated across all domains)
 async fn get_admin_analytics_overview(
-    Extension(user): Extension<UserContext>,
+    _auth: RequirePlatformAdmin,
     State(state): State<Arc<AppState>>,
     Query(query): Query<AdminAnalyticsQuery>,
 ) -> Result<Json<AdminAnalyticsOverview>, StatusCode> {
-    // Only platform_admin can view cross-domain analytics
-    if user.role != "platform_admin" {
-        return Err(StatusCode::FORBIDDEN);
-    }
-
     let (start_date, end_date) = parse_admin_date_range(&query);
     let previous_start = start_date - (end_date - start_date);
 
     // Get real session duration data (fallback to mock while migration is pending)
-    let current_avg_session_duration = match SessionTracker::get_average_session_duration(
-        &state.db, start_date, end_date, None, // Cross-domain analytics
-    )
-    .await
-    {
-        Ok(duration) => duration,
-        Err(_) => 3.5, // Fallback to mock value if session table doesn't exist yet
-    };
+    let current_avg_session_duration =
+        SessionTracker::get_average_session_duration(&state.db, start_date, end_date, None)
+            .await
+            .unwrap_or(3.5);
 
-    let previous_avg_session_duration = match SessionTracker::get_average_session_duration(
-        &state.db,
-        previous_start,
-        start_date,
-        None, // Cross-domain analytics
-    )
-    .await
-    {
-        Ok(duration) => duration,
-        Err(_) => 3.2, // Fallback to mock value if session table doesn't exist yet
-    };
+    let previous_avg_session_duration =
+        SessionTracker::get_average_session_duration(&state.db, previous_start, start_date, None)
+            .await
+            .unwrap_or(3.2);
 
     // Current period stats across all domains
     let current_stats = sqlx::query!(
@@ -1165,14 +1094,10 @@ async fn get_admin_analytics_overview(
 
 // Admin Traffic Stats
 async fn get_admin_traffic_stats(
-    Extension(user): Extension<UserContext>,
+    _auth: RequirePlatformAdmin,
     State(state): State<Arc<AppState>>,
     Query(query): Query<AdminAnalyticsQuery>,
 ) -> Result<Json<AdminTrafficResponse>, StatusCode> {
-    if user.role != "platform_admin" {
-        return Err(StatusCode::FORBIDDEN);
-    }
-
     let (start_date, end_date) = parse_admin_date_range(&query);
 
     // Daily stats
@@ -1237,14 +1162,10 @@ async fn get_admin_traffic_stats(
         .collect();
 
     // Device breakdown (real data from sessions, with fallback to mock)
-    let (mobile, desktop, tablet, unknown) = match SessionTracker::get_device_breakdown(
-        &state.db, start_date, end_date, None, // Cross-domain for admin
-    )
-    .await
-    {
-        Ok(breakdown) => breakdown,
-        Err(_) => (45, 35, 15, 5), // Fallback to mock values if session table doesn't exist yet
-    };
+    let (mobile, desktop, tablet, unknown) =
+        SessionTracker::get_device_breakdown(&state.db, start_date, end_date, None)
+            .await
+            .unwrap_or((45, 35, 15, 5));
 
     let device_breakdown = AdminDeviceBreakdown {
         mobile: mobile as i64,
@@ -1262,14 +1183,10 @@ async fn get_admin_traffic_stats(
 
 // Admin Post Analytics
 async fn get_admin_post_analytics(
-    Extension(user): Extension<UserContext>,
+    _auth: RequirePlatformAdmin,
     State(state): State<Arc<AppState>>,
     Query(query): Query<AdminAnalyticsQuery>,
 ) -> Result<Json<Vec<AdminPostStats>>, StatusCode> {
-    if user.role != "platform_admin" {
-        return Err(StatusCode::FORBIDDEN);
-    }
-
     let (start_date, end_date) = parse_admin_date_range(&query);
 
     let posts_data = sqlx::query!(
@@ -1566,41 +1483,58 @@ struct UsersQuery {
 
 // List users with pagination and filtering
 async fn list_users(
-    Extension(user): Extension<UserContext>,
+    RequirePlatformAdmin { user: _ }: RequirePlatformAdmin,
     State(state): State<Arc<AppState>>,
     Query(params): Query<UsersQuery>,
 ) -> Result<Json<UsersResponse>, StatusCode> {
-    // Only platform admins can list users
-    if user.role != "platform_admin" {
-        return Err(StatusCode::FORBIDDEN);
-    }
-
     let page = params.page.unwrap_or(1).max(1);
-    let per_page = params.per_page.unwrap_or(20).min(100).max(1) as i64;
+    let per_page = params.per_page.unwrap_or(20).clamp(1, 100) as i64;
     let offset = ((page - 1) * (per_page as i32)) as i64;
 
-    // TODO: Implement role and search filtering
-    // For now, returning all users with pagination
+    // Store values we need to use multiple times
+    let role_filter = params.role.as_ref();
+    let search_filter = params.search.as_ref();
+    let search_pattern = search_filter.map(|s| format!("%{}%", s));
 
-    // For now, let's use a simple query without complex filtering
-    let users_data = sqlx::query!(
-        "SELECT id, email, name, role, created_at, updated_at FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-        per_page,
-        offset
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let mut query_builder = FilteredQueryBuilder::new(
+        "SELECT id, email, name, role, created_at, updated_at FROM users",
+    );
 
-    let total = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users")
-        .fetch_one(&state.db)
+    query_builder
+        .add_filter_if_some("role = ?", role_filter)
+        .add_search_filter(&["name", "email"], search_filter.cloned());
+
+    let (query_str, query_params) = query_builder.build_with_pagination(per_page, offset);
+    let final_query = format!("{} ORDER BY created_at DESC", query_str);
+
+    // Manually bind parameters
+    let mut query = sqlx::query(&final_query);
+    for param in &query_params {
+        query = query.bind(param);
+    }
+
+    let users_data = query
+        .fetch_all(&state.db)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Get total count with same filters (simpler approach)
+    let total = sqlx::query_scalar!(
+        "SELECT COUNT(*) FROM users WHERE ($1::text IS NULL OR role = $1) AND ($2::text IS NULL OR (name ILIKE $3 OR email ILIKE $3))",
+        params.role,
+        params.search,
+        search_pattern
+    )
+    .fetch_one(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .unwrap_or(0);
 
     // Convert to response format with domain permissions
     let mut users = Vec::new();
     for user_data in users_data {
-        // Load domain permissions for this user
+        let user_id: i32 = user_data.get("id");
+
         let domain_permissions = sqlx::query_as::<_, DomainPermissionResponse>(
             r#"
             SELECT udp.domain_id, d.name as domain_name, udp.role
@@ -1610,18 +1544,18 @@ async fn list_users(
             ORDER BY d.name
             "#,
         )
-        .bind(user_data.id)
+        .bind(user_id)
         .fetch_all(&state.db)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
         users.push(UserResponse {
-            id: user_data.id,
-            email: user_data.email,
-            name: user_data.name,
-            role: user_data.role.unwrap_or_default(),
-            created_at: user_data.created_at.unwrap_or_default(),
-            updated_at: user_data.updated_at.unwrap_or_default(),
+            id: user_id,
+            email: user_data.get("email"),
+            name: user_data.get("name"),
+            role: user_data.get("role"),
+            created_at: user_data.get("created_at"),
+            updated_at: user_data.get("updated_at"),
             domain_permissions,
         });
     }
@@ -1645,8 +1579,10 @@ async fn create_user(
         return Err(StatusCode::FORBIDDEN);
     }
 
-    // Hash the password (in production, use proper bcrypt)
-    let password_hash = format!("$2b$12$placeholder_hash_{}", payload.password);
+    // Hash the password properly with bcrypt
+    use bcrypt::{DEFAULT_COST, hash};
+    let password_hash =
+        hash(&payload.password, DEFAULT_COST).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Insert user
     let user_id = sqlx::query_scalar::<_, i32>(
@@ -1718,19 +1654,19 @@ async fn update_user(
 
         if payload.email.is_some() {
             bind_count += 1;
-            query.push_str(&format!(", email = ${}", bind_count));
+            query.push_str(&format!(", email = ${bind_count}"));
         }
         if payload.name.is_some() {
             bind_count += 1;
-            query.push_str(&format!(", name = ${}", bind_count));
+            query.push_str(&format!(", name = ${bind_count}"));
         }
         if payload.role.is_some() {
             bind_count += 1;
-            query.push_str(&format!(", role = ${}", bind_count));
+            query.push_str(&format!(", role = ${bind_count}"));
         }
         if payload.password.is_some() {
             bind_count += 1;
-            query.push_str(&format!(", password_hash = ${}", bind_count));
+            query.push_str(&format!(", password_hash = ${bind_count}"));
         }
 
         query.push_str(&format!(" WHERE id = ${}", bind_count + 1));
@@ -1746,7 +1682,9 @@ async fn update_user(
             sqlx_query = sqlx_query.bind(role);
         }
         if let Some(password) = &payload.password {
-            let password_hash = format!("$2b$12$placeholder_hash_{}", password);
+            use bcrypt::{DEFAULT_COST, hash};
+            let password_hash =
+                hash(password, DEFAULT_COST).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
             sqlx_query = sqlx_query.bind(password_hash);
         }
 
@@ -1852,9 +1790,13 @@ async fn get_user_by_id(
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role.unwrap_or_default(),
-        created_at: user.created_at.unwrap_or_default(),
-        updated_at: user.updated_at.unwrap_or_default(),
+        role: user.role.expect("role should never be null in DB"),
+        created_at: user
+            .created_at
+            .expect("created_at should never be null in DB"),
+        updated_at: user
+            .updated_at
+            .expect("updated_at should never be null in DB"),
         domain_permissions,
     }))
 }

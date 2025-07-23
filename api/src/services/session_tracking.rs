@@ -2,10 +2,7 @@
 use axum::http::HeaderMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::{
-    PgPool, Row,
-    types::{BigDecimal, ipnetwork::IpNetwork},
-};
+use sqlx::{PgPool, types::ipnetwork::IpNetwork};
 use std::net::IpAddr;
 use uuid::Uuid;
 
@@ -166,122 +163,6 @@ impl SessionTracker {
         Ok(session.id)
     }
 
-    /// Calculate average session duration for a date range
-    pub async fn get_average_session_duration(
-        db: &PgPool,
-        start_date: DateTime<Utc>,
-        end_date: DateTime<Utc>,
-        domain: Option<&str>,
-    ) -> Result<f64, sqlx::Error> {
-        let avg_duration = match domain {
-            Some(domain_name) => {
-                sqlx::query!(
-                    r#"
-                    SELECT AVG(
-                        CASE 
-                            WHEN duration_seconds IS NOT NULL THEN duration_seconds
-                            ELSE EXTRACT(EPOCH FROM (last_activity_at - started_at))::INTEGER
-                        END
-                    ) as avg_duration
-                    FROM user_sessions 
-                    WHERE started_at BETWEEN $1 AND $2 
-                    AND domain_name = $3
-                    AND is_bot = FALSE
-                    "#,
-                    start_date,
-                    end_date,
-                    domain_name
-                )
-                .fetch_one(db)
-                .await?
-                .avg_duration
-            }
-            None => {
-                sqlx::query!(
-                    r#"
-                    SELECT AVG(
-                        CASE 
-                            WHEN duration_seconds IS NOT NULL THEN duration_seconds
-                            ELSE EXTRACT(EPOCH FROM (last_activity_at - started_at))::INTEGER
-                        END
-                    ) as avg_duration
-                    FROM user_sessions 
-                    WHERE started_at BETWEEN $1 AND $2 
-                    AND is_bot = FALSE
-                    "#,
-                    start_date,
-                    end_date
-                )
-                .fetch_one(db)
-                .await?
-                .avg_duration
-            }
-        };
-
-        // Convert from seconds to minutes and handle BigDecimal to f64 conversion
-        let avg_seconds = avg_duration.unwrap_or_else(|| BigDecimal::from(0));
-        let avg_seconds_f64: f64 = avg_seconds.to_string().parse().unwrap_or(0.0);
-        Ok(avg_seconds_f64 / 60.0)
-    }
-
-    /// Get device breakdown for analytics
-    pub async fn get_device_breakdown(
-        db: &PgPool,
-        start_date: DateTime<Utc>,
-        end_date: DateTime<Utc>,
-        domain: Option<&str>,
-    ) -> Result<(i32, i32, i32, i32), sqlx::Error> {
-        let (mobile, desktop, tablet, unknown) = match domain {
-            Some(domain_name) => {
-                let result = sqlx::query!(
-                    r#"
-                    SELECT 
-                        COUNT(CASE WHEN device_type = 'mobile' THEN 1 END) as mobile,
-                        COUNT(CASE WHEN device_type = 'desktop' THEN 1 END) as desktop,
-                        COUNT(CASE WHEN device_type = 'tablet' THEN 1 END) as tablet,
-                        COUNT(CASE WHEN device_type = 'unknown' THEN 1 END) as unknown
-                    FROM user_sessions 
-                    WHERE started_at BETWEEN $1 AND $2 
-                    AND domain_name = $3
-                    AND is_bot = FALSE
-                    "#,
-                    start_date,
-                    end_date,
-                    domain_name
-                )
-                .fetch_one(db)
-                .await?;
-                (result.mobile, result.desktop, result.tablet, result.unknown)
-            }
-            None => {
-                let result = sqlx::query!(
-                    r#"
-                    SELECT 
-                        COUNT(CASE WHEN device_type = 'mobile' THEN 1 END) as mobile,
-                        COUNT(CASE WHEN device_type = 'desktop' THEN 1 END) as desktop,
-                        COUNT(CASE WHEN device_type = 'tablet' THEN 1 END) as tablet,
-                        COUNT(CASE WHEN device_type = 'unknown' THEN 1 END) as unknown
-                    FROM user_sessions 
-                    WHERE started_at BETWEEN $1 AND $2 
-                    AND is_bot = FALSE
-                    "#,
-                    start_date,
-                    end_date
-                )
-                .fetch_one(db)
-                .await?;
-                (result.mobile, result.desktop, result.tablet, result.unknown)
-            }
-        };
-
-        Ok((
-            mobile.unwrap_or(0) as i32,
-            desktop.unwrap_or(0) as i32,
-            tablet.unwrap_or(0) as i32,
-            unknown.unwrap_or(0) as i32,
-        ))
-    }
-
     /// End a session (called when user leaves or session expires)
     pub async fn end_session(db: &PgPool, session_id: &str) -> Result<(), sqlx::Error> {
         // First get the session UUID
@@ -357,5 +238,212 @@ impl SessionTracker {
         } else {
             false
         }
+    }
+
+    /// Get device breakdown for analytics
+    pub async fn get_device_breakdown(
+        db: &PgPool,
+        start_date: DateTime<Utc>,
+        end_date: DateTime<Utc>,
+        domain_name: Option<&str>,
+    ) -> Result<(i64, i64, i64, i64), sqlx::Error> {
+        let (mobile, desktop, tablet, unknown) = if let Some(domain) = domain_name {
+            let result = sqlx::query!(
+                r#"
+                SELECT 
+                    COUNT(*) FILTER (WHERE device_type = 'mobile') as mobile,
+                    COUNT(*) FILTER (WHERE device_type = 'desktop') as desktop,
+                    COUNT(*) FILTER (WHERE device_type = 'tablet') as tablet,
+                    COUNT(*) FILTER (WHERE device_type = 'unknown') as unknown
+                FROM user_sessions 
+                WHERE started_at BETWEEN $1 AND $2 
+                AND domain_name = $3
+                AND is_bot = false
+                "#,
+                start_date,
+                end_date,
+                domain
+            )
+            .fetch_one(db)
+            .await?;
+            (
+                result.mobile.unwrap_or(0),
+                result.desktop.unwrap_or(0),
+                result.tablet.unwrap_or(0),
+                result.unknown.unwrap_or(0),
+            )
+        } else {
+            let result = sqlx::query!(
+                r#"
+                SELECT 
+                    COUNT(*) FILTER (WHERE device_type = 'mobile') as mobile,
+                    COUNT(*) FILTER (WHERE device_type = 'desktop') as desktop,
+                    COUNT(*) FILTER (WHERE device_type = 'tablet') as tablet,
+                    COUNT(*) FILTER (WHERE device_type = 'unknown') as unknown
+                FROM user_sessions 
+                WHERE started_at BETWEEN $1 AND $2
+                AND is_bot = false
+                "#,
+                start_date,
+                end_date
+            )
+            .fetch_one(db)
+            .await?;
+            (
+                result.mobile.unwrap_or(0),
+                result.desktop.unwrap_or(0),
+                result.tablet.unwrap_or(0),
+                result.unknown.unwrap_or(0),
+            )
+        };
+
+        Ok((mobile, desktop, tablet, unknown))
+    }
+
+    /// Get average session duration for analytics
+    pub async fn get_average_session_duration(
+        db: &PgPool,
+        start_date: DateTime<Utc>,
+        end_date: DateTime<Utc>,
+        domain_name: Option<&str>,
+    ) -> Result<f64, sqlx::Error> {
+        let avg_duration = if let Some(domain) = domain_name {
+            let result = sqlx::query!(
+                r#"
+                SELECT AVG(duration_seconds) as avg_duration
+                FROM user_sessions 
+                WHERE started_at BETWEEN $1 AND $2 
+                AND domain_name = $3
+                AND is_bot = false
+                AND duration_seconds IS NOT NULL
+                "#,
+                start_date,
+                end_date,
+                domain
+            )
+            .fetch_one(db)
+            .await?;
+            result.avg_duration
+        } else {
+            let result = sqlx::query!(
+                r#"
+                SELECT AVG(duration_seconds) as avg_duration
+                FROM user_sessions 
+                WHERE started_at BETWEEN $1 AND $2
+                AND is_bot = false
+                AND duration_seconds IS NOT NULL
+                "#,
+                start_date,
+                end_date
+            )
+            .fetch_one(db)
+            .await?;
+            result.avg_duration
+        };
+
+        Ok(avg_duration
+            .and_then(|d| d.to_string().parse::<f64>().ok())
+            .unwrap_or(0.0))
+    }
+
+    /// Get bounce rate for analytics
+    pub async fn get_bounce_rate(
+        db: &PgPool,
+        start_date: DateTime<Utc>,
+        end_date: DateTime<Utc>,
+        domain_name: Option<&str>,
+    ) -> Result<f64, sqlx::Error> {
+        let (total, bounces) = if let Some(domain) = domain_name {
+            let result = sqlx::query!(
+                r#"
+                SELECT 
+                    COUNT(*) as total_sessions,
+                    COUNT(*) FILTER (WHERE page_views <= 1) as bounce_sessions
+                FROM user_sessions 
+                WHERE started_at BETWEEN $1 AND $2 
+                AND domain_name = $3
+                AND is_bot = false
+                "#,
+                start_date,
+                end_date,
+                domain
+            )
+            .fetch_one(db)
+            .await?;
+            (
+                result.total_sessions.unwrap_or(0),
+                result.bounce_sessions.unwrap_or(0),
+            )
+        } else {
+            let result = sqlx::query!(
+                r#"
+                SELECT 
+                    COUNT(*) as total_sessions,
+                    COUNT(*) FILTER (WHERE page_views <= 1) as bounce_sessions
+                FROM user_sessions 
+                WHERE started_at BETWEEN $1 AND $2
+                AND is_bot = false
+                "#,
+                start_date,
+                end_date
+            )
+            .fetch_one(db)
+            .await?;
+            (
+                result.total_sessions.unwrap_or(0),
+                result.bounce_sessions.unwrap_or(0),
+            )
+        };
+
+        let total_f = total as f64;
+        let bounces_f = bounces as f64;
+
+        if total_f > 0.0 {
+            Ok(bounces_f / total_f)
+        } else {
+            Ok(0.0)
+        }
+    }
+
+    /// Get session count for analytics
+    pub async fn get_session_count(
+        db: &PgPool,
+        start_date: DateTime<Utc>,
+        end_date: DateTime<Utc>,
+        domain_name: Option<&str>,
+    ) -> Result<i64, sqlx::Error> {
+        let session_count = if let Some(domain) = domain_name {
+            let result = sqlx::query!(
+                r#"
+                SELECT COUNT(*) as session_count
+                FROM user_sessions 
+                WHERE started_at BETWEEN $1 AND $2 
+                AND domain_name = $3
+                AND is_bot = false
+                "#,
+                start_date,
+                end_date,
+                domain
+            )
+            .fetch_one(db)
+            .await?;
+            result.session_count.unwrap_or(0)
+        } else {
+            let result = sqlx::query!(
+                r#"
+                SELECT COUNT(*) as session_count
+                FROM user_sessions 
+                WHERE started_at BETWEEN $1 AND $2
+                AND is_bot = false
+                "#,
+                start_date,
+                end_date
+            )
+            .fetch_one(db)
+            .await?;
+            result.session_count.unwrap_or(0)
+        };
+
+        Ok(session_count)
     }
 }

@@ -28,14 +28,6 @@ const BlogPostPage: React.FC = () => {
     slug || ''
   )
 
-  // Set up analytics tracking for this blog post
-  useAnalytics({
-    trackContent: true,
-    contentId: post?.id.toString(),
-    contentType: 'post',
-    contentTitle: post?.title,
-  })
-
   // Show error toast when post fails to load
   React.useEffect(() => {
     if (error) {

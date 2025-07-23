@@ -46,10 +46,58 @@ import { buildApiUrl, API_CONFIG } from '../config/dev'
 const url = buildApiUrl(API_CONFIG.ENDPOINTS.AUTH.LOGIN)
 // Results in: http://localhost:8000/auth/login
 
-// For analytics endpoints
-const analyticsUrl = buildApiUrl(API_CONFIG.ENDPOINTS.ANALYTICS.OVERVIEW)
-// Results in: http://localhost:8000/analytics/overview
+// For analytics dashboard endpoints (require auth)
+const dashboardUrl = buildApiUrl(API_CONFIG.ENDPOINTS.ANALYTICS.DASHBOARD)
+// Results in: http://localhost:8000/analytics/dashboard
+
+// For behavior tracking endpoints (public)
+const behaviorUrl = buildApiUrl(API_CONFIG.ENDPOINTS.ANALYTICS.TRACK_BEHAVIOR)
+// Results in: http://localhost:8000/analytics/behavior
 ```
+
+### Analytics Endpoint Usage
+
+The analytics system provides two types of endpoints:
+
+1. **Dashboard Endpoints** (Require Authentication):
+   ```typescript
+   // Get comprehensive analytics dashboard
+   const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.ANALYTICS.DASHBOARD), {
+     headers: { 'Authorization': `Bearer ${token}` }
+   });
+   
+   // Get traffic statistics
+   const traffic = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.ANALYTICS.TRAFFIC), {
+     headers: { 'Authorization': `Bearer ${token}` }
+   });
+   ```
+
+2. **Tracking Endpoints** (Public - No Auth Required):
+   ```typescript
+   // Track user behavior
+   await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.ANALYTICS.TRACK_BEHAVIOR), {
+     method: 'POST',
+     headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({
+       event_type: 'click',
+       element: 'nav-menu',
+       session_id: sessionId,
+       timestamp: new Date().toISOString()
+     })
+   });
+   
+   // Track search events
+   await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.ANALYTICS.TRACK_SEARCH), {
+     method: 'POST',
+     headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({
+       query: 'rust tutorial',
+       results_count: 12,
+       session_id: sessionId,
+       timestamp: new Date().toISOString()
+     })
+   });
+   ```
 
 ### Adding New Endpoints
 
@@ -63,7 +111,7 @@ const analyticsUrl = buildApiUrl(API_CONFIG.ENDPOINTS.ANALYTICS.OVERVIEW)
 
 - **Auth**: `/auth/*` (login, logout, register)
 - **Admin**: `/admin/*` (user management, domains, settings)
-- **Analytics**: `/analytics/*` (overview, traffic, posts, search-terms, referrers)
+- **Analytics**: `/analytics/*` (dashboard, traffic, posts, search-terms, referrers, real-time, export, behavior tracking)
 - **Blog**: `/*` (public blog content)
 
 ### Frontend Configuration
@@ -81,10 +129,20 @@ API_CONFIG.ENDPOINTS = {
     // ...
   },
   ANALYTICS: {
-    OVERVIEW: '/analytics/overview',
+    // Dashboard & Reports (Auth Required)
+    DASHBOARD: '/analytics/dashboard',
     TRAFFIC: '/analytics/traffic',
     POSTS: '/analytics/posts',
-    // ...
+    SEARCH_TERMS: '/analytics/search-terms',
+    REFERRERS: '/analytics/referrers',
+    REAL_TIME: '/analytics/real-time',
+    EXPORT: '/analytics/export',
+    
+    // Behavior Tracking (Public)
+    TRACK_BEHAVIOR: '/analytics/behavior',
+    TRACK_SEARCH: '/analytics/search',
+    TRACK_SEARCH_CLICK: '/analytics/search-click',
+    TRACK_CONTENT_METRICS: '/analytics/content-metrics'
   },
 }
 ```
@@ -121,10 +179,17 @@ API_CONFIG.ENDPOINTS = {
 
 2. **404 Not Found on Analytics**
 
-   - Analytics endpoints moved from `/admin/analytics/*` to `/analytics/*`
+   - Analytics endpoints updated to include comprehensive behavior tracking
+   - Dashboard endpoint changed from `/analytics/overview` to `/analytics/dashboard`
+   - New tracking endpoints: `/analytics/behavior`, `/analytics/search`, etc.
    - Update imports to use `API_CONFIG.ENDPOINTS.ANALYTICS.*`
 
-3. **HTML response instead of JSON**
+3. **Authentication Errors on Tracking**
+   - Behavior tracking endpoints (`/analytics/behavior`, `/analytics/search`, etc.) are public
+   - Dashboard endpoints (`/analytics/dashboard`, `/analytics/traffic`, etc.) require authentication
+   - Verify JWT token is included for dashboard endpoints only
+
+4. **HTML response instead of JSON**
    - Usually indicates the backend endpoint doesn't exist
    - Check that the backend API is running on the correct port
    - Verify the endpoint path matches the backend route structure

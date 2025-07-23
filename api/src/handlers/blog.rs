@@ -186,7 +186,7 @@ async fn list_posts(
     Query(params): Query<ListQuery>,
 ) -> Result<Json<PostListResponse>, StatusCode> {
     let page = params.page.unwrap_or(1).max(1);
-    let per_page = params.per_page.unwrap_or(10).min(50).max(1);
+    let per_page = params.per_page.unwrap_or(10).clamp(1, 50);
     let offset = (page - 1) * per_page;
 
     log_page_view(&state, &domain, &analytics, "/posts").await?;
@@ -278,7 +278,7 @@ async fn get_post(
     .fetch_optional(&state.db)
     .await
     .map_err(|e| {
-        println!("❌ Database error: {}", e);
+        println!("❌ Database error: {e}");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -484,7 +484,7 @@ async fn log_page_view(
     .execute(&state.db)
     .await
     .map_err(|e| {
-        println!("❌ Analytics logging error: {}", e);
+        println!("❌ Analytics logging error: {e}");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 

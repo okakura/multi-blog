@@ -1,14 +1,8 @@
 use api::{
     AppState, analytics_middleware, auth_middleware, domain_middleware,
-    handlers::{
-        HandlerModule,
-        admin::AdminModule,
-        analytics::{self, AnalyticsModule},
-        auth,
-        blog::BlogModule,
-        session,
-    },
+    handlers::{HandlerModule, admin::AdminModule, analytics, auth, blog::BlogModule, session},
 };
+
 use axum::{Router, middleware, response::Html};
 use std::{env, sync::Arc};
 use tokio::net::TcpListener;

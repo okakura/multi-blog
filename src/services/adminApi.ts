@@ -213,19 +213,21 @@ class AdminApiService {
   private getAuthHeaders(domain?: string): HeadersInit {
     const token = localStorage.getItem('auth_token')
 
-    // Map frontend domain names to backend domain names
-    const domainMap: Record<string, string> = {
-      'tech.blog': 'tech.localhost',
-      'lifestyle.blog': 'lifestyle.localhost',
-      'business.blog': 'business.localhost',
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
     }
 
-    const backendDomain = domainMap[domain || 'tech.blog'] || 'tech.localhost'
+    // Only set X-Domain header for specific domains, not for 'all'
+    if (domain && domain !== 'all') {
+      // Map frontend domain names to backend domain names
+      const domainMap: Record<string, string> = {
+        'tech.blog': 'tech.localhost',
+        'lifestyle.blog': 'lifestyle.localhost',
+        'business.blog': 'business.localhost',
+      }
 
-    const headers: HeadersInit = {
-      // Note: Browser cannot set Host header, so we'll use a custom header instead
-      'X-Domain': backendDomain,
-      'Content-Type': 'application/json',
+      const backendDomain = domainMap[domain] || domain // Use domain as-is if not in map
+      headers['X-Domain'] = backendDomain
     }
 
     if (token) {
@@ -242,19 +244,22 @@ class AdminApiService {
     domain?: string,
     status?: string
   ): Promise<AdminPostsResponse> {
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: limit.toString(),
-    })
-
-    if (status) {
-      params.append('status', status)
-    }
-
     try {
-      const response = await fetch(this.buildUrl('/posts', { page, limit }), {
+      const params: Record<string, string | number> = { page, limit }
+      if (domain) {
+        params.domain = domain
+      }
+      
+      const response = await fetch(this.buildUrl('/posts', params), {
         headers: this.getAuthHeaders(domain),
       })
+
+      console.log('Admin API request:', {
+        url: this.buildUrl('/posts', params),
+        params,
+        domain,
+        headers: this.getAuthHeaders(domain)
+      }) // Debug log
 
       if (!response.ok) {
         throw new Error(`Failed to fetch admin posts: ${response.statusText}`)

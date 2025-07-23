@@ -8,13 +8,19 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::sync::Arc;
 
+// Module declarations
+pub mod extractors;
 pub mod handlers;
 pub mod services;
+pub mod utils;
 
 #[cfg(test)]
 pub mod test_utils;
 
-// Domain context that gets passed through requests
+// Re-export commonly used types
+pub use extractors::*;
+
+// Core context types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DomainContext {
     pub id: i32,
@@ -24,17 +30,6 @@ pub struct DomainContext {
     pub categories: Vec<String>,
 }
 
-// Helper struct for database operations
-#[derive(Debug, Clone, sqlx::FromRow)]
-struct DomainContextDb {
-    pub id: i32,
-    pub hostname: String,
-    pub name: String,
-    pub theme_config: serde_json::Value,
-    pub categories: serde_json::Value,
-}
-
-// User context for admin operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserContext {
     pub id: i32,
@@ -50,7 +45,6 @@ pub struct DomainPermission {
     pub role: String, // admin, editor, viewer
 }
 
-// Analytics context for tracking
 #[derive(Debug, Clone)]
 pub struct AnalyticsContext {
     pub ip_address: String,
@@ -60,6 +54,16 @@ pub struct AnalyticsContext {
 
 pub struct AppState {
     pub db: PgPool,
+}
+
+// Helper struct for database operations
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct DomainContextDb {
+    pub id: i32,
+    pub hostname: String,
+    pub name: String,
+    pub theme_config: serde_json::Value,
+    pub categories: serde_json::Value,
 }
 
 // Middleware to resolve domain from hostname
