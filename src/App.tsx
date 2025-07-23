@@ -2,6 +2,7 @@ import { Toaster } from 'react-hot-toast'
 import { Route, Routes } from 'react-router-dom'
 import './App.css'
 import { PreferencesWrapper } from './components/PreferencesWrapper'
+import PerformanceOverlay from './components/PerformanceOverlay'
 import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
@@ -12,7 +13,6 @@ import AdminLayout from './components/admin/AdminLayout'
 import BlogPostPage from './pages/BlogPostPage'
 import BlogDomainPage from './pages/BlogDomainPage'
 import Portfolio from './pages/Portfolio'
-import AdminAnalytics from './pages/admin/AdminAnalytics'
 import AdminAnalyticsDashboard from './pages/admin/AdminAnalyticsDashboard'
 import AdminCreatePostPage from './pages/admin/AdminCreatePostPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -46,18 +46,32 @@ const AdminApp = () => {
   )
 }
 
-// Main router
-const BlogPlatform = () => {
-  // Initialize session tracking for analytics
+// Public blog wrapper component (with analytics tracking)
+const PublicBlogApp = () => {
+  // Initialize session tracking for analytics (only for public blog routes)
   useSessionTracking()
-
+  
   return (
-    <AuthProvider>
+    <>
       <Routes>
         <Route path='/' element={<Portfolio />} />
         <Route path='/blog/:domain' element={<BlogDomainPage />} />
         <Route path='/blog/:domain/post/:slug' element={<BlogPostPage />} />
+      </Routes>
+      
+      {/* Performance overlay for blog pages */}
+      <PerformanceOverlay />
+    </>
+  )
+}
+
+// Main router
+const BlogPlatform = () => {
+  return (
+    <AuthProvider>
+      <Routes>
         <Route path='/admin/*' element={<AdminApp />} />
+        <Route path='/*' element={<PublicBlogApp />} />
       </Routes>
 
       {/* Toast notifications */}
