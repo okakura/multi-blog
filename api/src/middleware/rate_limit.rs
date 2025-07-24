@@ -1,26 +1,73 @@
 use axum::{
-    extract::{ConnectInfo, Request},
-    http::StatusCode,
+    extract::{ConnectInfo, FromRequestParts, Request},
+    http::{StatusCode, request::Parts},
     middleware::Next,
     response::Response,
 };
+use dashmap::DashMap;
 use governor::{
+    Quota, RateLimiter,
     clock::DefaultClock,
     state::{InMemoryState, NotKeyed},
-    Quota, RateLimiter,
 };
+use serde::Deserialize;
 use std::{
-    collections::HashMap,
     net::{IpAddr, SocketAddr},
     num::NonZeroU32,
     sync::Arc,
-    time::Duration,
+    time::{Duration, Instant},
 };
-use tokio::sync::RwLock;
 use tracing::{info, warn};
 
-/// Configuration for different rate limiting scenarios
+/// Represents the real client IP address, extracted from headers or socket info.
 #[derive(Debug, Clone)]
+pub struct ClientIp(pub IpAddr);
+
+// Implement a custom extractor to get the client's IP address
+impl<S> FromRequestParts<S> for ClientIp
+where
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, &'static str);
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        // Extract IP from `X-Forwarded-For` header (first IP in comma-separated list)
+        if let Some(forwarded_for) = parts
+            .headers
+            .get("X-Forwarded-For")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| s.split(',').next())
+            .and_then(|ip_str| ip_str.trim().parse().ok())
+        {
+            return Ok(ClientIp(forwarded_for));
+        }
+
+        // Extract IP from `X-Real-IP` header
+        if let Some(real_ip) = parts
+            .headers
+            .get("X-Real-IP")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| s.trim().parse().ok())
+        {
+            return Ok(ClientIp(real_ip));
+        }
+
+        // Fallback to connection info
+        if let Some(ConnectInfo(addr)) = parts.extensions.get::<ConnectInfo<SocketAddr>>() {
+            return Ok(ClientIp(addr.ip()));
+        }
+
+        Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Could not extract client IP address",
+        ))
+    }
+}
+
+/// Configuration for different rate limiting scenarios.
+/// Can be customized via environment variables.
+// TODO: Implement dynamic configuration loading
+#[derive(Debug, Clone, Deserialize)]
 pub struct RateLimitConfig {
     /// Maximum requests per time window
     pub max_requests: NonZeroU32,
@@ -75,50 +122,74 @@ impl RateLimitConfig {
     }
 }
 
+/// Wrapper for the rate limiter to include last access time.
+struct LimiterState {
+    limiter: IpRateLimiter,
+    last_accessed: Instant,
+}
+
+impl LimiterState {
+    fn new(limiter: IpRateLimiter) -> Self {
+        Self {
+            limiter,
+            last_accessed: Instant::now(),
+        }
+    }
+
+    fn touch(&mut self) {
+        self.last_accessed = Instant::now();
+    }
+
+    fn is_stale(&self, timeout: Duration) -> bool {
+        self.last_accessed.elapsed() > timeout
+    }
+}
+
 /// Type alias for our rate limiter
 type IpRateLimiter = Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>;
 
+// TODO: Configurable cleanup
+// TODO: IP whitelisting/blacklisting
 /// Rate limiting middleware that tracks by IP address
 #[derive(Clone)]
 pub struct RateLimitMiddleware {
-    limiters: Arc<RwLock<HashMap<IpAddr, IpRateLimiter>>>,
+    limiters: Arc<DashMap<IpAddr, LimiterState>>,
     config: RateLimitConfig,
-    cleanup_handle: Arc<tokio::task::JoinHandle<()>>,
+    _cleanup_handle: Arc<tokio::task::JoinHandle<()>>,
 }
 
 impl RateLimitMiddleware {
     /// Create a new rate limiting middleware with the given configuration
     pub fn new(config: RateLimitConfig) -> Self {
-        let limiters = Arc::new(RwLock::new(HashMap::new()));
-        
+        let limiters = Arc::new(DashMap::new());
+
         // Start cleanup task
-        let cleanup_handle = Self::start_cleanup_task(limiters.clone());
-        
+        let cleanup_handle = Self::start_cleanup_task(limiters.clone(), Duration::from_secs(300));
+
         Self {
             limiters,
             config,
-            cleanup_handle: Arc::new(cleanup_handle),
+            _cleanup_handle: Arc::new(cleanup_handle),
         }
     }
 
     /// Start background task to clean up old rate limiters
-    fn start_cleanup_task(limiters: Arc<RwLock<HashMap<IpAddr, IpRateLimiter>>>) -> tokio::task::JoinHandle<()> {
+    fn start_cleanup_task(
+        limiters: Arc<DashMap<IpAddr, LimiterState>>,
+        cleanup_interval_secs: Duration,
+    ) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(300)); // Every 5 minutes
-            
+            let mut interval = tokio::time::interval(cleanup_interval_secs);
+            // Stale time should be longer than the rate limit window
+            let stale_after = Duration::from_secs(3600);
+
             loop {
                 interval.tick().await;
-                
-                let mut limiters_map = limiters.write().await;
-                let initial_count = limiters_map.len();
-                
-                // Remove limiters that haven't been used recently
-                limiters_map.retain(|_ip, limiter| {
-                    // Keep limiters that still have remaining capacity or recent activity
-                    limiter.check().is_err() || limiter.check().is_ok()
-                });
-                
-                let final_count = limiters_map.len();
+
+                let initial_count = limiters.len();
+                limiters.retain(|_, state| !state.is_stale(stale_after));
+                let final_count = limiters.len();
+
                 if initial_count > final_count {
                     info!(
                         cleaned = initial_count - final_count,
@@ -126,8 +197,7 @@ impl RateLimitMiddleware {
                         "Cleaned up unused rate limiters"
                     );
                 }
-                
-                // Warn if we have too many active limiters
+
                 if final_count > 10000 {
                     warn!(
                         active_limiters = final_count,
@@ -139,46 +209,31 @@ impl RateLimitMiddleware {
     }
 
     /// Get or create a rate limiter for the given IP
-    async fn get_limiter(&self, ip: IpAddr) -> IpRateLimiter {
-        // Try to get existing limiter first (read lock)
-        {
-            let limiters = self.limiters.read().await;
-            if let Some(limiter) = limiters.get(&ip) {
-                return limiter.clone();
-            }
+    fn get_limiter(&self, ip: IpAddr) -> IpRateLimiter {
+        if let Some(mut entry) = self.limiters.get_mut(&ip) {
+            entry.touch();
+            return entry.limiter.clone();
         }
 
-        // Need to create new limiter (write lock)
-        let mut limiters = self.limiters.write().await;
-        
-        // Double-check in case another task created it while we were waiting
-        if let Some(limiter) = limiters.get(&ip) {
-            return limiter.clone();
-        }
-
-        // Create new rate limiter for this IP
         let quota = Quota::with_period(Duration::from_secs(self.config.window_seconds))
             .unwrap()
             .allow_burst(self.config.max_requests);
-        
         let limiter = Arc::new(RateLimiter::direct(quota));
-        limiters.insert(ip, limiter.clone());
-        
+
+        self.limiters.insert(ip, LimiterState::new(limiter.clone()));
         limiter
     }
 
     /// Apply rate limiting middleware
     pub async fn apply(
         &self,
-        ConnectInfo(addr): ConnectInfo<SocketAddr>,
+        ClientIp(ip): ClientIp,
         request: Request,
         next: Next,
     ) -> Result<Response, StatusCode> {
-        let ip = addr.ip();
-        
         // Get rate limiter for this IP
-        let limiter = self.get_limiter(ip).await;
-        
+        let limiter = self.get_limiter(ip);
+
         // Check rate limit
         match limiter.check() {
             Ok(_) => {
@@ -197,10 +252,10 @@ impl RateLimitMiddleware {
                     window_seconds = self.config.window_seconds,
                     "Rate limit exceeded"
                 );
-                
+
                 // Record metrics
                 crate::telemetry::record_http_metrics("RATE_LIMITED", "/", 429, 0);
-                
+
                 Err(StatusCode::TOO_MANY_REQUESTS)
             }
         }
@@ -215,7 +270,43 @@ pub fn create_rate_limiter(config: RateLimitConfig) -> RateLimitMiddleware {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::{IpAddr, Ipv4Addr};
+    use axum::http::HeaderMap;
+    use std::net::{Ipv4Addr, Ipv6Addr};
+
+    #[tokio::test]
+    async fn test_client_ip_extractor() {
+        // Test X-Forwarded-For
+        let mut headers = HeaderMap::new();
+        headers.insert("X-Forwarded-For", "192.168.0.1, 10.0.0.1".parse().unwrap());
+        let mut parts = Parts {
+            headers,
+            ..Default::default()
+        };
+        let ip = ClientIp::from_request_parts(&mut parts, &()).await.unwrap();
+        assert_eq!(ip.0, IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)));
+
+        // Test X-Real-IP
+        let mut headers = HeaderMap::new();
+        headers.insert("X-Real-IP", "2001:db8::1".parse().unwrap());
+        let mut parts = Parts {
+            headers,
+            ..Default::default()
+        };
+        let ip = ClientIp::from_request_parts(&mut parts, &()).await.unwrap();
+        assert_eq!(
+            ip.0,
+            IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1))
+        );
+
+        // Test fallback to ConnectInfo
+        let mut parts = Parts {
+            ..Default::default()
+        };
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+        parts.extensions.insert(ConnectInfo(addr));
+        let ip = ClientIp::from_request_parts(&mut parts, &()).await.unwrap();
+        assert_eq!(ip.0, IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+    }
 
     #[tokio::test]
     async fn test_rate_limit_configs() {
@@ -240,11 +331,11 @@ mod tests {
     async fn test_rate_limiter_creation() {
         let config = RateLimitConfig::default();
         let middleware = RateLimitMiddleware::new(config);
-        
+
         // Test that we can get a limiter
         let ip = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
-        let limiter = middleware.get_limiter(ip).await;
-        
+        let limiter = middleware.get_limiter(ip);
+
         // Should allow initial requests
         assert!(limiter.check().is_ok());
     }
@@ -256,16 +347,45 @@ mod tests {
             max_requests: NonZeroU32::new(2).unwrap(),
             window_seconds: 1,
         };
-        
+
         let middleware = RateLimitMiddleware::new(config);
         let ip = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
-        let limiter = middleware.get_limiter(ip).await;
-        
+        let limiter = middleware.get_limiter(ip);
+
         // First two requests should pass
         assert!(limiter.check().is_ok());
         assert!(limiter.check().is_ok());
-        
+
         // Third request should be rate limited
         assert!(limiter.check().is_err());
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_task() {
+        let limiters = Arc::new(DashMap::new());
+        let ip1 = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let ip2 = IpAddr::V4(Ipv4Addr::new(2, 2, 2, 2));
+
+        let quota = Quota::with_period(Duration::from_secs(60))
+            .unwrap()
+            .allow_burst(NonZeroU32::new(10).unwrap());
+        let limiter1 = Arc::new(RateLimiter::direct(quota.clone()));
+        let limiter2 = Arc::new(RateLimiter::direct(quota));
+
+        limiters.insert(ip1, LimiterState::new(limiter1));
+        limiters.insert(ip2, LimiterState::new(limiter2));
+
+        // Manually create a stale entry
+        let mut stale_entry = limiters.get_mut(&ip1).unwrap();
+        stale_entry.last_accessed = Instant::now() - Duration::from_secs(4000);
+
+        assert_eq!(limiters.len(), 2);
+
+        // Run cleanup logic
+        let stale_after = Duration::from_secs(3600);
+        limiters.retain(|_, state| !state.is_stale(stale_after));
+
+        assert_eq!(limiters.len(), 1);
+        assert!(limiters.contains_key(&ip2));
     }
 }

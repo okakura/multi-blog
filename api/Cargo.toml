@@ -27,6 +27,7 @@ metrics-exporter-prometheus = "0.12"
 utoipa = { version = "5.0", features = ["axum_extras", "chrono"] }
 utoipa-swagger-ui = { version = "8.0", features = ["axum"] }
 governor = "0.10"
+dashmap = "6.1.0"
 
 [dev-dependencies]
 tokio-test = "0.4"
