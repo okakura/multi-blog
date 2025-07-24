@@ -2,13 +2,14 @@ use api::{
     AppState, analytics_middleware, auth_middleware, domain_middleware,
     handlers::{HandlerModule, admin::AdminModule, analytics, auth, blog::BlogModule, session},
     middleware::{
-        error_tracking_middleware, http_tracing_middleware, performance_monitoring_middleware,
+        RateLimitConfig, create_rate_limiter, error_tracking_middleware, http_tracing_middleware,
+        performance_monitoring_middleware,
     },
     telemetry::{TelemetryConfig, init_telemetry},
 };
 
-use axum::{Router, middleware, response::Html};
-use std::{env, sync::Arc};
+use axum::{Router, extract::ConnectInfo, middleware, response::Html};
+use std::{env, net::SocketAddr, sync::Arc};
 use tokio::net::TcpListener;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tracing::info;
@@ -126,6 +127,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 }
 
 pub fn create_app(state: Arc<AppState>) -> Router {
+    // Create rate limiting middleware instances for different route groups
+    let default_rate_limiter = create_rate_limiter(RateLimitConfig::default());
+    let auth_rate_limiter = create_rate_limiter(RateLimitConfig::auth());
+    let admin_rate_limiter = create_rate_limiter(RateLimitConfig::admin());
+    let read_only_rate_limiter = create_rate_limiter(RateLimitConfig::read_only());
+
     Router::new()
         // Add a simple debug route without any middleware
         .route(
@@ -157,18 +164,52 @@ pub fn create_app(state: Arc<AppState>) -> Router {
         .route("/swagger-ui", axum::routing::get(swagger_ui_handler))
         // Add metrics endpoint for Prometheus scraping
         .route("/metrics", axum::routing::get(metrics_handler))
-        // Mount auth routes (no middleware required, with CORS)
-        .nest("/auth", auth::auth_router())
-        // Mount blog module (public routes with domain + analytics middleware)
+        // Mount auth routes (with auth-specific rate limiting)
+        .nest(
+            "/auth",
+            auth::auth_router().layer(middleware::from_fn(
+                move |ConnectInfo(addr): ConnectInfo<SocketAddr>, req, next| {
+                    let rate_limiter = auth_rate_limiter.clone();
+                    async move {
+                        rate_limiter
+                            .apply(ConnectInfo(addr), req, next)
+                            .await
+                            .unwrap_or_else(|status| {
+                                axum::response::Response::builder()
+                                    .status(status)
+                                    .body("Rate limit exceeded".into())
+                                    .unwrap()
+                            })
+                    }
+                },
+            )),
+        )
+        // Mount blog module (public routes with read-only rate limiting + domain + analytics middleware)
         .merge(
             BlogModule::routes()
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     domain_middleware,
                 ))
-                .layer(middleware::from_fn(analytics_middleware)),
+                .layer(middleware::from_fn(analytics_middleware))
+                .layer(middleware::from_fn(
+                    move |ConnectInfo(addr): ConnectInfo<SocketAddr>, req, next| {
+                        let rate_limiter = read_only_rate_limiter.clone();
+                        async move {
+                            rate_limiter
+                                .apply(ConnectInfo(addr), req, next)
+                                .await
+                                .unwrap_or_else(|status| {
+                                    axum::response::Response::builder()
+                                        .status(status)
+                                        .body("Rate limit exceeded".into())
+                                        .unwrap()
+                                })
+                        }
+                    },
+                )),
         )
-        // Mount session tracking (public routes with domain + analytics middleware)
+        // Mount session tracking (public routes with default rate limiting + domain + analytics middleware)
         .nest(
             "/session",
             Router::new()
@@ -179,9 +220,25 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                     state.clone(),
                     domain_middleware,
                 ))
-                .layer(middleware::from_fn(analytics_middleware)),
+                .layer(middleware::from_fn(analytics_middleware))
+                .layer(middleware::from_fn(
+                    move |ConnectInfo(addr): ConnectInfo<SocketAddr>, req, next| {
+                        let rate_limiter = default_rate_limiter.clone();
+                        async move {
+                            rate_limiter
+                                .apply(ConnectInfo(addr), req, next)
+                                .await
+                                .unwrap_or_else(|status| {
+                                    axum::response::Response::builder()
+                                        .status(status)
+                                        .body("Rate limit exceeded".into())
+                                        .unwrap()
+                                })
+                        }
+                    },
+                )),
         )
-        // Mount admin module (auth + domain required)
+        // Mount admin module (auth + domain required, with admin rate limiting)
         .nest(
             AdminModule::mount_path(),
             AdminModule::routes()
@@ -192,6 +249,22 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     domain_middleware,
+                ))
+                .layer(middleware::from_fn(
+                    move |ConnectInfo(addr): ConnectInfo<SocketAddr>, req, next| {
+                        let rate_limiter = admin_rate_limiter.clone();
+                        async move {
+                            rate_limiter
+                                .apply(ConnectInfo(addr), req, next)
+                                .await
+                                .unwrap_or_else(|status| {
+                                    axum::response::Response::builder()
+                                        .status(status)
+                                        .body("Rate limit exceeded".into())
+                                        .unwrap()
+                                })
+                        }
+                    },
                 )),
         )
         // Mount analytics endpoints (auth required)

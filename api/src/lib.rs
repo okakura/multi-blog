@@ -21,6 +21,10 @@ pub mod test_utils;
 
 // Re-export commonly used types
 pub use extractors::*;
+pub use middleware::{
+    RateLimitConfig, RateLimitMiddleware, create_rate_limiter, error_tracking_middleware,
+    http_tracing_middleware, performance_monitoring_middleware,
+};
 
 // Core context types
 #[derive(Debug, Clone, Serialize, Deserialize)]
