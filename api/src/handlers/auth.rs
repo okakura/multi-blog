@@ -1,3 +1,4 @@
+use crate::utils::{ErrorSpan, PerformanceSpan};
 use crate::{AppState, DomainPermission};
 use axum::{
     Router,
@@ -92,30 +93,70 @@ pub async fn login(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, (StatusCode, Json<ErrorResponse>)> {
-    // Validate input
-    if let Err(validation_error) = payload.validate() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::new("validation_error", &validation_error)),
-        ));
-    }
-    // Look up user in database
-    let user = sqlx::query!(
-        "SELECT id, email, name, password_hash, role FROM users WHERE email = $1",
-        payload.email
-    )
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|_| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new("database_error", "Failed to query user")),
+    PerformanceSpan::monitor("user_login", async {
+        // Validate input
+        if let Err(validation_error) = payload.validate() {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::new("validation_error", &validation_error)),
+            ));
+        }
+        // Look up user in database
+        let user = sqlx::query!(
+            "SELECT id, email, name, password_hash, role FROM users WHERE email = $1",
+            payload.email
         )
-    })?;
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("database_error", "Failed to query user")),
+            )
+        })?;
 
-    let user = match user {
-        Some(u) => u,
-        None => {
+        let user = match user {
+            Some(u) => u,
+            None => {
+                ErrorSpan::track_error(
+                    "auth_invalid_credentials",
+                    "warning",
+                    &format!("Login attempt failed for email: {}", payload.email),
+                    Some(serde_json::json!({
+                        "email": payload.email,
+                        "reason": "user_not_found"
+                    })),
+                );
+                return Err((
+                    StatusCode::UNAUTHORIZED,
+                    Json(ErrorResponse::new(
+                        "invalid_credentials",
+                        "Invalid email or password",
+                    )),
+                ));
+            }
+        };
+
+        // Verify password
+        if !verify(&payload.password, &user.password_hash).map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(
+                    "auth_error",
+                    "Password verification failed",
+                )),
+            )
+        })? {
+            ErrorSpan::track_error(
+                "auth_invalid_password",
+                "warning",
+                &format!("Invalid password attempt for user: {}", user.email),
+                Some(serde_json::json!({
+                    "user_id": user.id,
+                    "email": user.email,
+                    "reason": "incorrect_password"
+                })),
+            );
             return Err((
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorResponse::new(
@@ -124,91 +165,73 @@ pub async fn login(
                 )),
             ));
         }
-    };
 
-    // Verify password
-    if !verify(&payload.password, &user.password_hash).map_err(|_| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(
-                "auth_error",
-                "Password verification failed",
-            )),
+        // Get domain permissions for this user
+        let permissions_rows = sqlx::query!(
+            "SELECT domain_id, role FROM user_domain_permissions WHERE user_id = $1",
+            user.id
         )
-    })? {
-        return Err((
-            StatusCode::UNAUTHORIZED,
-            Json(ErrorResponse::new(
-                "invalid_credentials",
-                "Invalid email or password",
-            )),
-        ));
-    }
+        .fetch_all(&state.db)
+        .await
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(
+                    "database_error",
+                    "Failed to query permissions",
+                )),
+            )
+        })?;
 
-    // Get domain permissions for this user
-    let permissions_rows = sqlx::query!(
-        "SELECT domain_id, role FROM user_domain_permissions WHERE user_id = $1",
-        user.id
-    )
-    .fetch_all(&state.db)
+        let domain_permissions = permissions_rows
+            .into_iter()
+            .map(|row| DomainPermission {
+                domain_id: row.domain_id.unwrap_or(0),
+                role: row.role,
+            })
+            .collect();
+
+        // Create JWT token
+        let now = Utc::now();
+        let exp = now + Duration::hours(24); // Token valid for 24 hours
+
+        let claims = Claims {
+            sub: user.email.clone(),
+            user_id: user.id,
+            role: user.role.clone().unwrap_or_default(),
+            exp: exp.timestamp() as usize,
+            iat: now.timestamp() as usize,
+        };
+
+        let token = encode(
+            &Header::default(),
+            &claims,
+            &EncodingKey::from_secret(get_jwt_secret().as_bytes()),
+        )
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(
+                    "token_error",
+                    "Failed to generate token",
+                )),
+            )
+        })?;
+
+        let user_info = UserInfo {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role.unwrap_or_default(),
+            domain_permissions,
+        };
+
+        Ok(Json(LoginResponse {
+            user: user_info,
+            token,
+        }))
+    })
     .await
-    .map_err(|_| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(
-                "database_error",
-                "Failed to query permissions",
-            )),
-        )
-    })?;
-
-    let domain_permissions = permissions_rows
-        .into_iter()
-        .map(|row| DomainPermission {
-            domain_id: row.domain_id.unwrap_or(0),
-            role: row.role,
-        })
-        .collect();
-
-    // Create JWT token
-    let now = Utc::now();
-    let exp = now + Duration::hours(24); // Token valid for 24 hours
-
-    let claims = Claims {
-        sub: user.email.clone(),
-        user_id: user.id,
-        role: user.role.clone().unwrap_or_default(),
-        exp: exp.timestamp() as usize,
-        iat: now.timestamp() as usize,
-    };
-
-    let token = encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(get_jwt_secret().as_bytes()),
-    )
-    .map_err(|_| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(
-                "token_error",
-                "Failed to generate token",
-            )),
-        )
-    })?;
-
-    let user_info = UserInfo {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role.unwrap_or_default(),
-        domain_permissions,
-    };
-
-    Ok(Json(LoginResponse {
-        user: user_info,
-        token,
-    }))
 }
 
 /// Verify token endpoint

@@ -1,4 +1,5 @@
 use crate::services::session_tracking::SessionTracker;
+use crate::utils::{AnalyticsSpan, PerformanceSpan};
 use crate::{AppState, UserContext};
 use axum::{
     Extension, Router,
@@ -381,15 +382,16 @@ pub async fn get_analytics_dashboard(
     State(state): State<Arc<AppState>>,
     Query(query): Query<AnalyticsQuery>,
 ) -> Result<Json<AnalyticsDashboardResponse>, StatusCode> {
-    let (start_date, end_date) = parse_date_range(&query);
-    let previous_start = start_date - (end_date - start_date);
+    PerformanceSpan::monitor("analytics_dashboard", async {
+        let (start_date, end_date) = parse_date_range(&query);
+        let previous_start = start_date - (end_date - start_date);
 
-    // Get domain IDs user has access to
-    let domain_ids = get_user_accessible_domains(&user, &query, &state.db).await?;
+        // Get domain IDs user has access to
+        let domain_ids = get_user_accessible_domains(&user, &query, &state.db).await?;
 
-    // Current period stats - aggregate across all permitted domains
-    let current_stats = sqlx::query!(
-        r#"
+        // Current period stats - aggregate across all permitted domains
+        let current_stats = sqlx::query!(
+            r#"
         SELECT 
             COUNT(*) FILTER (WHERE event_type = 'page_view') as page_views,
             COUNT(*) FILTER (WHERE event_type = 'post_view') as post_views,
@@ -399,17 +401,17 @@ pub async fn get_analytics_dashboard(
         FROM analytics_events 
         WHERE domain_id = ANY($1) AND created_at BETWEEN $2 AND $3
         "#,
-        &domain_ids,
-        start_date,
-        end_date
-    )
-    .fetch_one(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            &domain_ids,
+            start_date,
+            end_date
+        )
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Previous period stats for comparison
-    let previous_stats = sqlx::query!(
-        r#"
+        // Previous period stats for comparison
+        let previous_stats = sqlx::query!(
+            r#"
         SELECT 
             COUNT(*) FILTER (WHERE event_type = 'page_view') as page_views,
             COUNT(*) FILTER (WHERE event_type = 'post_view') as post_views,
@@ -418,17 +420,17 @@ pub async fn get_analytics_dashboard(
         FROM analytics_events 
         WHERE domain_id = ANY($1) AND created_at BETWEEN $2 AND $3
         "#,
-        &domain_ids,
-        previous_start,
-        start_date
-    )
-    .fetch_one(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            &domain_ids,
+            previous_start,
+            start_date
+        )
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Top posts across all permitted domains
-    let top_posts = sqlx::query!(
-        r#"
+        // Top posts across all permitted domains
+        let top_posts = sqlx::query!(
+            r#"
         SELECT p.id, p.title, p.slug,
                COUNT(*) as views,
                COUNT(DISTINCT ae.ip_address) as unique_views
@@ -440,26 +442,26 @@ pub async fn get_analytics_dashboard(
         ORDER BY views DESC
         LIMIT 10
         "#,
-        &domain_ids,
-        start_date,
-        end_date
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-    .into_iter()
-    .map(|row| PostStats {
-        id: row.id,
-        title: row.title,
-        slug: row.slug,
-        views: row.views.unwrap_or(0),
-        unique_views: row.unique_views.unwrap_or(0),
-    })
-    .collect();
+            &domain_ids,
+            start_date,
+            end_date
+        )
+        .fetch_all(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .into_iter()
+        .map(|row| PostStats {
+            id: row.id,
+            title: row.title,
+            slug: row.slug,
+            views: row.views.unwrap_or(0),
+            unique_views: row.unique_views.unwrap_or(0),
+        })
+        .collect();
 
-    // Top categories across all permitted domains
-    let top_categories = sqlx::query!(
-        r#"
+        // Top categories across all permitted domains
+        let top_categories = sqlx::query!(
+            r#"
         SELECT p.category,
                COUNT(*) as views,
                COUNT(DISTINCT p.id) as posts_count
@@ -471,60 +473,60 @@ pub async fn get_analytics_dashboard(
         ORDER BY views DESC
         LIMIT 10
         "#,
-        &domain_ids,
-        start_date,
-        end_date
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-    .into_iter()
-    .map(|row| CategoryStats {
-        category: row.category,
-        views: row.views.unwrap_or(0),
-        posts_count: row.posts_count.unwrap_or(0),
-    })
-    .collect();
-
-    // Calculate percentage changes
-    let calc_change = |current: Option<i64>, previous: Option<i64>| -> f64 {
-        let curr = current.unwrap_or(0) as f64;
-        let prev = previous.unwrap_or(0) as f64;
-        if prev == 0.0 {
-            0.0
-        } else {
-            ((curr - prev) / prev) * 100.0
-        }
-    };
-
-    let previous_period = PeriodStats {
-        page_views: previous_stats.page_views.unwrap_or(0),
-        unique_visitors: previous_stats.unique_visitors.unwrap_or(0),
-        post_views: previous_stats.post_views.unwrap_or(0),
-        searches: previous_stats.searches.unwrap_or(0),
-        avg_session_duration: SessionTracker::get_average_session_duration(
-            &state.db,
-            previous_start,
+            &domain_ids,
             start_date,
-            None,
+            end_date
         )
+        .fetch_all(&state.db)
         .await
-        .unwrap_or(0.0),
-    };
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .into_iter()
+        .map(|row| CategoryStats {
+            category: row.category,
+            views: row.views.unwrap_or(0),
+            posts_count: row.posts_count.unwrap_or(0),
+        })
+        .collect();
 
-    let change_percent = ChangePercent {
-        page_views: calc_change(current_stats.page_views, previous_stats.page_views),
-        unique_visitors: calc_change(
-            current_stats.unique_visitors,
-            previous_stats.unique_visitors,
-        ),
-        post_views: calc_change(current_stats.post_views, previous_stats.post_views),
-        searches: calc_change(current_stats.searches, previous_stats.searches),
-    };
+        // Calculate percentage changes
+        let calc_change = |current: Option<i64>, previous: Option<i64>| -> f64 {
+            let curr = current.unwrap_or(0) as f64;
+            let prev = previous.unwrap_or(0) as f64;
+            if prev == 0.0 {
+                0.0
+            } else {
+                ((curr - prev) / prev) * 100.0
+            }
+        };
 
-    // Get search analytics
-    let search_queries = sqlx::query!(
-        r#"
+        let previous_period = PeriodStats {
+            page_views: previous_stats.page_views.unwrap_or(0),
+            unique_visitors: previous_stats.unique_visitors.unwrap_or(0),
+            post_views: previous_stats.post_views.unwrap_or(0),
+            searches: previous_stats.searches.unwrap_or(0),
+            avg_session_duration: SessionTracker::get_average_session_duration(
+                &state.db,
+                previous_start,
+                start_date,
+                None,
+            )
+            .await
+            .unwrap_or(0.0),
+        };
+
+        let change_percent = ChangePercent {
+            page_views: calc_change(current_stats.page_views, previous_stats.page_views),
+            unique_visitors: calc_change(
+                current_stats.unique_visitors,
+                previous_stats.unique_visitors,
+            ),
+            post_views: calc_change(current_stats.post_views, previous_stats.post_views),
+            searches: calc_change(current_stats.searches, previous_stats.searches),
+        };
+
+        // Get search analytics
+        let search_queries = sqlx::query!(
+            r#"
         SELECT path as query,
                COUNT(*) as count
         FROM analytics_events
@@ -534,24 +536,24 @@ pub async fn get_analytics_dashboard(
         ORDER BY count DESC
         LIMIT 5
         "#,
-        &domain_ids,
-        start_date,
-        end_date
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-    .into_iter()
-    .map(|row| SearchQuery {
-        query: row.query.unwrap_or_default(),
-        count: row.count.unwrap_or(0),
-        results_avg: 8.5,
-    })
-    .collect();
+            &domain_ids,
+            start_date,
+            end_date
+        )
+        .fetch_all(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .into_iter()
+        .map(|row| SearchQuery {
+            query: row.query.unwrap_or_default(),
+            count: row.count.unwrap_or(0),
+            results_avg: 8.5,
+        })
+        .collect();
 
-    // Get real content performance data from posts analytics
-    let content_performance: Vec<ContentPerformance> = sqlx::query!(
-        r#"
+        // Get real content performance data from posts analytics
+        let content_performance: Vec<ContentPerformance> = sqlx::query!(
+            r#"
         SELECT p.id::text as content_id, p.title,
                COUNT(*) as views
         FROM analytics_events ae
@@ -562,26 +564,26 @@ pub async fn get_analytics_dashboard(
         ORDER BY views DESC
         LIMIT 5
         "#,
-        &domain_ids,
-        start_date,
-        end_date
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-    .into_iter()
-    .map(|row| ContentPerformance {
-        content_id: row.content_id.unwrap_or_default(),
-        title: row.title,
-        views: row.views.unwrap_or(0),
-        avg_reading_time: 0,   // TODO: Calculate from behavior tracking data
-        engagement_score: 0.0, // TODO: Calculate from session and behavior metrics
-    })
-    .collect();
+            &domain_ids,
+            start_date,
+            end_date
+        )
+        .fetch_all(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .into_iter()
+        .map(|row| ContentPerformance {
+            content_id: row.content_id.unwrap_or_default(),
+            title: row.title,
+            views: row.views.unwrap_or(0),
+            avg_reading_time: 0,   // TODO: Calculate from behavior tracking data
+            engagement_score: 0.0, // TODO: Calculate from session and behavior metrics
+        })
+        .collect();
 
-    // Get real behavior analytics data from behavior_events table
-    let clicked_elements = sqlx::query!(
-        r#"
+        // Get real behavior analytics data from behavior_events table
+        let clicked_elements = sqlx::query!(
+            r#"
         SELECT element, COUNT(*) as clicks
         FROM behavior_events be
         JOIN user_sessions us ON be.session_id = us.session_id
@@ -591,22 +593,22 @@ pub async fn get_analytics_dashboard(
         ORDER BY clicks DESC
         LIMIT 5
         "#,
-        start_date,
-        end_date
-    )
-    .fetch_all(&state.db)
-    .await
-    .unwrap_or_else(|_| vec![])
-    .into_iter()
-    .map(|row| ClickedElement {
-        element: row.element.unwrap_or_default(),
-        clicks: row.clicks.unwrap_or(0),
-    })
-    .collect();
+            start_date,
+            end_date
+        )
+        .fetch_all(&state.db)
+        .await
+        .unwrap_or_else(|_| vec![])
+        .into_iter()
+        .map(|row| ClickedElement {
+            element: row.element.unwrap_or_default(),
+            clicks: row.clicks.unwrap_or(0),
+        })
+        .collect();
 
-    // Get real scroll depth distribution from behavior_events
-    let scroll_depths = sqlx::query!(
-        r#"
+        // Get real scroll depth distribution from behavior_events
+        let scroll_depths = sqlx::query!(
+            r#"
         SELECT 
             CASE 
                 WHEN scroll_depth <= 25 THEN 25
@@ -622,47 +624,48 @@ pub async fn get_analytics_dashboard(
         GROUP BY depth_bucket
         ORDER BY depth_bucket
         "#,
-        start_date,
-        end_date
-    )
-    .fetch_all(&state.db)
-    .await
-    .unwrap_or_else(|_| vec![]);
+            start_date,
+            end_date
+        )
+        .fetch_all(&state.db)
+        .await
+        .unwrap_or_else(|_| vec![]);
 
-    let total_scroll_events: i64 = scroll_depths.iter().map(|r| r.count.unwrap_or(0)).sum();
-    let scroll_depth_distribution = if total_scroll_events > 0 {
-        scroll_depths
-            .into_iter()
-            .map(|row| ScrollDepthData {
-                depth: row.depth_bucket.unwrap_or(0) as i32,
-                percentage: (row.count.unwrap_or(0) as f64 / total_scroll_events as f64) * 100.0,
-            })
-            .collect()
-    } else {
-        // Default empty distribution if no data
-        vec![
-            ScrollDepthData {
-                depth: 25,
-                percentage: 0.0,
-            },
-            ScrollDepthData {
-                depth: 50,
-                percentage: 0.0,
-            },
-            ScrollDepthData {
-                depth: 75,
-                percentage: 0.0,
-            },
-            ScrollDepthData {
-                depth: 90,
-                percentage: 0.0,
-            },
-        ]
-    };
+        let total_scroll_events: i64 = scroll_depths.iter().map(|r| r.count.unwrap_or(0)).sum();
+        let scroll_depth_distribution = if total_scroll_events > 0 {
+            scroll_depths
+                .into_iter()
+                .map(|row| ScrollDepthData {
+                    depth: row.depth_bucket.unwrap_or(0) as i32,
+                    percentage: (row.count.unwrap_or(0) as f64 / total_scroll_events as f64)
+                        * 100.0,
+                })
+                .collect()
+        } else {
+            // Default empty distribution if no data
+            vec![
+                ScrollDepthData {
+                    depth: 25,
+                    percentage: 0.0,
+                },
+                ScrollDepthData {
+                    depth: 50,
+                    percentage: 0.0,
+                },
+                ScrollDepthData {
+                    depth: 75,
+                    percentage: 0.0,
+                },
+                ScrollDepthData {
+                    depth: 90,
+                    percentage: 0.0,
+                },
+            ]
+        };
 
-    // Calculate engagement score from session and behavior data
-    let engagement_score = sqlx::query!(
-        r#"
+        // Calculate engagement score from session and behavior data
+        let engagement_score = sqlx::query!(
+            r#"
         SELECT AVG(
             CASE 
                 WHEN us.duration_seconds IS NULL THEN 0
@@ -682,45 +685,45 @@ pub async fn get_analytics_dashboard(
         WHERE us.started_at BETWEEN $1 AND $2
         AND us.is_bot = false
         "#,
-        start_date,
-        end_date
-    )
-    .fetch_one(&state.db)
-    .await;
+            start_date,
+            end_date
+        )
+        .fetch_one(&state.db)
+        .await;
 
-    let engagement_score_avg = match engagement_score {
-        Ok(record) => record
-            .avg_engagement
-            .and_then(|d| d.to_string().parse::<f64>().ok())
-            .unwrap_or(0.0),
-        Err(_) => 0.0,
-    };
+        let engagement_score_avg = match engagement_score {
+            Ok(record) => record
+                .avg_engagement
+                .and_then(|d| d.to_string().parse::<f64>().ok())
+                .unwrap_or(0.0),
+            Err(_) => 0.0,
+        };
 
-    // Get real content metrics for reading time
-    let avg_reading_time = sqlx::query!(
-        r#"
+        // Get real content metrics for reading time
+        let avg_reading_time = sqlx::query!(
+            r#"
         SELECT AVG(reading_time) as avg_time
         FROM content_metrics cm
         JOIN user_sessions us ON cm.session_id = us.session_id
         WHERE cm.created_at BETWEEN $1 AND $2
         "#,
-        start_date,
-        end_date
-    )
-    .fetch_one(&state.db)
-    .await;
+            start_date,
+            end_date
+        )
+        .fetch_one(&state.db)
+        .await;
 
-    let avg_reading_time_val = match avg_reading_time {
-        Ok(record) => record
-            .avg_time
-            .and_then(|d| d.to_string().parse::<i64>().ok())
-            .unwrap_or(0),
-        Err(_) => 0,
-    };
+        let avg_reading_time_val = match avg_reading_time {
+            Ok(record) => record
+                .avg_time
+                .and_then(|d| d.to_string().parse::<i64>().ok())
+                .unwrap_or(0),
+            Err(_) => 0,
+        };
 
-    // Get content completion rate from content_metrics
-    let completion_stats = sqlx::query!(
-        r#"
+        // Get content completion rate from content_metrics
+        let completion_stats = sqlx::query!(
+            r#"
         SELECT 
             COUNT(*) as total_content_views,
             COUNT(*) FILTER (WHERE scroll_percentage >= 90) as completed_views
@@ -728,68 +731,70 @@ pub async fn get_analytics_dashboard(
         JOIN user_sessions us ON cm.session_id = us.session_id
         WHERE cm.created_at BETWEEN $1 AND $2
         "#,
-        start_date,
-        end_date
-    )
-    .fetch_one(&state.db)
-    .await;
+            start_date,
+            end_date
+        )
+        .fetch_one(&state.db)
+        .await;
 
-    let completion_rate = match completion_stats {
-        Ok(stats) => {
-            let total = stats.total_content_views.unwrap_or(0);
-            if total > 0 {
-                (stats.completed_views.unwrap_or(0) as f64 / total as f64) * 100.0
-            } else {
-                0.0
+        let completion_rate = match completion_stats {
+            Ok(stats) => {
+                let total = stats.total_content_views.unwrap_or(0);
+                if total > 0 {
+                    (stats.completed_views.unwrap_or(0) as f64 / total as f64) * 100.0
+                } else {
+                    0.0
+                }
             }
-        }
-        Err(_) => 0.0,
-    };
+            Err(_) => 0.0,
+        };
 
-    // Get real session metrics
-    let avg_session_duration = SessionTracker::get_average_session_duration(
-        &state.db, start_date, end_date, None, // Cross-domain analytics
-    )
+        // Get real session metrics
+        let avg_session_duration = SessionTracker::get_average_session_duration(
+            &state.db, start_date, end_date, None, // Cross-domain analytics
+        )
+        .await
+        .unwrap_or(0.0);
+
+        let bounce_rate = SessionTracker::get_bounce_rate(
+            &state.db, start_date, end_date, None, // Cross-domain analytics
+        )
+        .await
+        .unwrap_or(0.0);
+
+        let response = AnalyticsDashboardResponse {
+            overview: DashboardOverview {
+                total_sessions: current_stats.total_sessions.unwrap_or(0),
+                total_page_views: current_stats.page_views.unwrap_or(0),
+                avg_session_duration,
+                bounce_rate,
+                unique_visitors: current_stats.unique_visitors.unwrap_or(0),
+                previous_period,
+                change_percent,
+            },
+
+            behavior: BehaviorAnalytics {
+                top_clicked_elements: clicked_elements,
+                scroll_depth_distribution,
+                engagement_score_avg,
+            },
+            search: SearchAnalytics {
+                top_queries: search_queries,
+                no_results_rate: 0.12,
+                search_to_click_rate: 0.68,
+            },
+            content: ContentAnalytics {
+                top_content: content_performance,
+                avg_reading_time: avg_reading_time_val,
+                content_completion_rate: completion_rate,
+            },
+            top_posts,
+            top_categories,
+        };
+
+        Ok(Json(response))
+    })
     .await
-    .unwrap_or(0.0);
-
-    let bounce_rate = SessionTracker::get_bounce_rate(
-        &state.db, start_date, end_date, None, // Cross-domain analytics
-    )
-    .await
-    .unwrap_or(0.0);
-
-    let response = AnalyticsDashboardResponse {
-        overview: DashboardOverview {
-            total_sessions: current_stats.total_sessions.unwrap_or(0),
-            total_page_views: current_stats.page_views.unwrap_or(0),
-            avg_session_duration,
-            bounce_rate,
-            unique_visitors: current_stats.unique_visitors.unwrap_or(0),
-            previous_period,
-            change_percent,
-        },
-
-        behavior: BehaviorAnalytics {
-            top_clicked_elements: clicked_elements,
-            scroll_depth_distribution,
-            engagement_score_avg,
-        },
-        search: SearchAnalytics {
-            top_queries: search_queries,
-            no_results_rate: 0.12,
-            search_to_click_rate: 0.68,
-        },
-        content: ContentAnalytics {
-            top_content: content_performance,
-            avg_reading_time: avg_reading_time_val,
-            content_completion_rate: completion_rate,
-        },
-        top_posts,
-        top_categories,
-    };
-
-    Ok(Json(response))
 }
 
 // Traffic analytics - keep the existing working implementation
@@ -798,14 +803,15 @@ pub async fn get_traffic_stats(
     State(state): State<Arc<AppState>>,
     Query(query): Query<AnalyticsQuery>,
 ) -> Result<Json<TrafficResponse>, StatusCode> {
-    let (start_date, end_date) = parse_date_range(&query);
+    PerformanceSpan::monitor("get_traffic_stats", async {
+        let (start_date, end_date) = parse_date_range(&query);
 
-    // Get domain IDs user has access to
-    let domain_ids = get_user_accessible_domains(&user, &query, &state.db).await?;
+        // Get domain IDs user has access to
+        let domain_ids = get_user_accessible_domains(&user, &query, &state.db).await?;
 
-    // Daily stats aggregated across domains
-    let daily_stats = sqlx::query!(
-        r#"
+        // Daily stats aggregated across domains
+        let daily_stats = sqlx::query!(
+            r#"
         SELECT 
             DATE(created_at) as date,
             COUNT(*) FILTER (WHERE event_type = 'page_view') as page_views,
@@ -816,25 +822,25 @@ pub async fn get_traffic_stats(
         GROUP BY DATE(created_at)
         ORDER BY date
         "#,
-        &domain_ids,
-        start_date,
-        end_date
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-    .into_iter()
-    .map(|row| DayStats {
-        date: row.date.unwrap_or_default().to_string(),
-        page_views: row.page_views.unwrap_or(0),
-        unique_visitors: row.unique_visitors.unwrap_or(0),
-        post_views: row.post_views.unwrap_or(0),
-    })
-    .collect();
+            &domain_ids,
+            start_date,
+            end_date
+        )
+        .fetch_all(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .into_iter()
+        .map(|row| DayStats {
+            date: row.date.unwrap_or_default().to_string(),
+            page_views: row.page_views.unwrap_or(0),
+            unique_visitors: row.unique_visitors.unwrap_or(0),
+            post_views: row.post_views.unwrap_or(0),
+        })
+        .collect();
 
-    // Hourly distribution aggregated across domains
-    let hourly_distribution = sqlx::query!(
-        r#"
+        // Hourly distribution aggregated across domains
+        let hourly_distribution = sqlx::query!(
+            r#"
         SELECT 
             EXTRACT(HOUR FROM created_at) as hour,
             COUNT(*) FILTER (WHERE event_type = 'page_view') as page_views,
@@ -844,47 +850,49 @@ pub async fn get_traffic_stats(
         GROUP BY EXTRACT(HOUR FROM created_at)
         ORDER BY hour
         "#,
-        &domain_ids,
-        start_date,
-        end_date
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-    .into_iter()
-    .map(|row| HourStats {
-        hour: row
-            .hour
-            .map(|h| h.to_string().parse().unwrap_or(0))
-            .unwrap_or(0),
-        page_views: row.page_views.unwrap_or(0),
-        unique_visitors: row.unique_visitors.unwrap_or(0),
-    })
-    .collect();
-
-    // Get real device breakdown from session data
-    let device_breakdown = {
-        let (mobile, desktop, tablet, unknown) = SessionTracker::get_device_breakdown(
-            &state.db, start_date, end_date, None, // Cross-domain analytics
+            &domain_ids,
+            start_date,
+            end_date
         )
+        .fetch_all(&state.db)
         .await
-        .unwrap_or((0, 0, 0, 0));
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .into_iter()
+        .map(|row| HourStats {
+            hour: row
+                .hour
+                .map(|h| h.to_string().parse().unwrap_or(0))
+                .unwrap_or(0),
+            page_views: row.page_views.unwrap_or(0),
+            unique_visitors: row.unique_visitors.unwrap_or(0),
+        })
+        .collect();
 
-        DeviceBreakdown {
-            mobile,
-            desktop,
-            tablet,
-            unknown,
-        }
-    };
+        // Get real device breakdown from session data
+        let device_breakdown = {
+            let (mobile, desktop, tablet, unknown) = SessionTracker::get_device_breakdown(
+                &state.db, start_date, end_date, None, // Cross-domain analytics
+            )
+            .await
+            .unwrap_or((0, 0, 0, 0));
 
-    let response = TrafficResponse {
-        daily_stats,
-        hourly_distribution,
-        device_breakdown,
-    };
+            DeviceBreakdown {
+                mobile,
+                desktop,
+                tablet,
+                unknown,
+            }
+        };
 
-    Ok(Json(response))
+        let response = TrafficResponse {
+            daily_stats,
+            hourly_distribution,
+            device_breakdown,
+        };
+
+        Ok(Json(response))
+    })
+    .await
 }
 
 pub async fn get_post_analytics(
@@ -1258,78 +1266,91 @@ pub async fn track_behavior_event(
     State(state): State<Arc<AppState>>,
     Json(event): Json<UserBehaviorEvent>,
 ) -> Result<StatusCode, StatusCode> {
-    // Store behavior event in database
-    let result = sqlx::query!(
-        r#"
+    PerformanceSpan::monitor("track_behavior_event", async {
+        let span = tracing::info_span!(
+            "track_behavior_event",
+            session_id = %event.session_id,
+            event_type = %event.event_type,
+            element = event.element.as_deref().unwrap_or(""),
+        );
+
+        let _guard = span.enter();
+
+        // Store behavior event in database
+        let result = sqlx::query!(
+            r#"
         INSERT INTO behavior_events (
             session_id, event_type, element, x, y, scroll_depth
         ) VALUES ($1, $2, $3, $4, $5, $6)
         "#,
-        event.session_id,
-        event.event_type,
-        event.element,
-        event
-            .x
-            .map(|v| BigDecimal::from_str(&v.to_string()).unwrap_or_default()),
-        event
-            .y
-            .map(|v| BigDecimal::from_str(&v.to_string()).unwrap_or_default()),
-        event
-            .scroll_depth
-            .map(|v| BigDecimal::from_str(&v.to_string()).unwrap_or_default())
-    )
-    .execute(&state.db)
-    .await;
+            event.session_id,
+            event.event_type,
+            event.element,
+            event
+                .x
+                .map(|v| BigDecimal::from_str(&v.to_string()).unwrap_or_default()),
+            event
+                .y
+                .map(|v| BigDecimal::from_str(&v.to_string()).unwrap_or_default()),
+            event
+                .scroll_depth
+                .map(|v| BigDecimal::from_str(&v.to_string()).unwrap_or_default())
+        )
+        .execute(&state.db)
+        .await;
 
-    match result {
-        Ok(_) => {
-            println!(
-                "✅ Behavior event stored: {} {} session:{}",
-                event.event_type,
-                event.element.as_deref().unwrap_or(""),
-                event.session_id
-            );
-            Ok(StatusCode::OK)
+        match result {
+            Ok(_) => {
+                tracing::info!("Behavior event stored successfully");
+                crate::telemetry::record_analytics_event("behavior_event");
+                Ok(StatusCode::OK)
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "Failed to store behavior event");
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
         }
-        Err(e) => {
-            eprintln!("❌ Failed to store behavior event: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+    })
+    .await
 }
 
 pub async fn track_search_event(
     State(state): State<Arc<AppState>>,
     Json(event): Json<SearchEvent>,
 ) -> Result<StatusCode, StatusCode> {
-    // Store search event in database
-    let result = sqlx::query!(
-        r#"
+    AnalyticsSpan::track_search("track_search_event", async {
+        // Store search event in database
+        let result = sqlx::query!(
+            r#"
         INSERT INTO search_events (
             session_id, query, results_count, no_results
         ) VALUES ($1, $2, $3, $4)
         "#,
-        event.session_id,
-        event.query,
-        event.results_count as i32,
-        event.no_results.unwrap_or_else(|| event.results_count == 0)
-    )
-    .execute(&state.db)
-    .await;
+            event.session_id,
+            event.query,
+            event.results_count as i32,
+            event.no_results.unwrap_or_else(|| event.results_count == 0)
+        )
+        .execute(&state.db)
+        .await;
 
-    match result {
-        Ok(_) => {
-            println!(
-                "✅ Search event stored: '{}' {} results session:{}",
-                event.query, event.results_count, event.session_id
-            );
-            Ok(StatusCode::OK)
+        match result {
+            Ok(_) => {
+                tracing::info!(
+                    query = %event.query,
+                    results_count = event.results_count,
+                    session_id = %event.session_id,
+                    "Search event stored successfully"
+                );
+                Ok(StatusCode::OK)
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "Failed to store search event");
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
         }
-        Err(e) => {
-            eprintln!("❌ Failed to store search event: {e}");
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+    })
+    .await
 }
 
 pub async fn track_search_click_event(
@@ -1353,14 +1374,17 @@ pub async fn track_search_click_event(
 
     match result {
         Ok(_) => {
-            println!(
-                "✅ Search click stored: '{}' -> '{}' session:{}",
-                event.query, event.clicked_result, event.session_id
+            tracing::info!(
+                query = %event.query,
+                clicked_result = %event.clicked_result,
+                session_id = %event.session_id,
+                position = event.position_clicked,
+                "Search click event stored successfully"
             );
             Ok(StatusCode::OK)
         }
         Err(e) => {
-            eprintln!("❌ Failed to store search click event: {e}");
+            tracing::error!(error = %e, "Failed to store search click event");
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
@@ -1393,14 +1417,20 @@ pub async fn track_content_metrics(
 
     match result {
         Ok(_) => {
-            println!(
-                "✅ Content metrics stored: '{}' {}s reading time, {}% scroll session:{}",
-                event.title, event.reading_time, event.scroll_percentage, event.session_id
+            tracing::info!(
+                title = %event.title,
+                reading_time = event.reading_time,
+                scroll_percentage = event.scroll_percentage,
+                session_id = %event.session_id,
+                time_on_page = event.time_on_page,
+                bounce = event.bounce,
+                engagement_events = event.engagement_events,
+                "Content metrics stored successfully"
             );
             Ok(StatusCode::OK)
         }
         Err(e) => {
-            eprintln!("❌ Failed to store content metrics: {e}");
+            tracing::error!(error = %e, "Failed to store content metrics");
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }

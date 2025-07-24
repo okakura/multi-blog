@@ -1,17 +1,32 @@
 # Multi-Blog Platform
 
-A full-stack multi-tenant blog platform built with React (frontend) and Rust/Axum (backend). Supports multiple domains with independent blog instances, user authentication, and comprehensive analytics.
+A full-stack multi-tenant blog platform built with React (frontend) and Rust/Axum (backend). Supports multiple domains with independent blog instances, user authentication, and **enterprise-grade observability**.
 
 ## 🚀 Features
 
+### Core Platform
 - **Multi-tenant Architecture**: Support for multiple blog domains
 - **Modern Frontend**: React 19 with TypeScript, Tailwind CSS, and Rsbuild
 - **Robust Backend**: Rust with Axum framework and PostgreSQL
 - **Authentication**: JWT-based auth with role-based access control
 - **Admin Dashboard**: Content management, user management, and analytics
-- **Real-time Analytics**: Track page views, user engagement, and performance
 - **Domain Management**: Configure themes and settings per domain
 - **Rich Text Editor**: TipTap-based editor with image uploads
+
+### 🔍 Enterprise Observability Stack
+- **Distributed Tracing**: OpenTelemetry + Jaeger v2 with OTLP support
+- **Metrics Collection**: Prometheus v3.5.0 LTS with custom dashboards
+- **Structured Logging**: Production-ready JSON logging with context
+- **Performance Monitoring**: Request timing, database performance, error tracking
+- **Analytics Intelligence**: User behavior tracking, search analytics, content metrics
+- **Real-time Dashboards**: Grafana v12.1.0 with custom API performance dashboard
+
+### 📊 Monitoring Capabilities
+- **100% HTTP Request Tracing** - Complete request lifecycle monitoring
+- **Database Performance Analysis** - Query timing and optimization insights
+- **Authentication Security Monitoring** - Login patterns and security analytics
+- **Business Logic Tracking** - Content access and user engagement metrics
+- **Error Context Tracking** - Rich error reporting with span correlation
 - **Code Quality**: Biome for linting and formatting
 
 ## 🏗️ Architecture
@@ -37,6 +52,14 @@ A full-stack multi-tenant blog platform built with React (frontend) and Rust/Axu
 - **CORS**: Configurable origins for security
 - **Environment**: dotenv configuration
 
+### 🔍 Observability Infrastructure
+
+- **OpenTelemetry SDK v0.20**: Unified observability framework
+- **Jaeger v2**: Distributed tracing with OTLP support (Port: 16686)
+- **Prometheus v3.5.0 LTS**: Metrics collection and storage (Port: 9090)
+- **Grafana v12.1.0**: Visualization and dashboards (Port: 3001)
+- **Custom Tracing Utilities**: Enhanced span management and context tracking
+
 ## 📦 Quick Start
 
 ### Using Makefile (Recommended)
@@ -56,14 +79,75 @@ make setup
 3. **Start development servers**:
 
 ```bash
-make dev-both
+make dev        # Full stack with observability
+# OR
+make dev-both   # Just frontend + backend
 ```
 
-4. **View help for all commands**:
+4. **Access the application**:
+   - **Frontend**: http://localhost:3001
+   - **API**: http://localhost:3000
+   - **Jaeger UI**: http://localhost:16686
+   - **Grafana**: http://localhost:3001 (admin/admin)
+   - **Prometheus**: http://localhost:9090
+
+5. **View help for all commands**:
 
 ```bash
 make help
 ```
+
+## 🔍 Observability & Monitoring
+
+The platform includes a comprehensive **enterprise-grade observability stack** providing deep insights into application performance, user behavior, and system health.
+
+### 📊 Monitoring Dashboard
+
+View real-time performance metrics in **Grafana** at http://localhost:3001:
+
+- **API Performance Dashboard** - Request rates, response times, error rates
+- **Database Performance** - Query timing, connection pools, slow queries
+- **Authentication Metrics** - Login success rates, security events
+- **User Analytics** - Content engagement, search patterns, traffic analysis
+
+### 🕵️ Distributed Tracing
+
+Analyze request flows with **Jaeger** at http://localhost:16686:
+
+- **End-to-end request tracing** - Complete request lifecycle visibility
+- **Database query analysis** - Performance bottleneck identification
+- **Error context tracking** - Rich error reporting with span correlation
+- **Performance optimization** - Identify slow operations and optimization opportunities
+
+### 📈 Key Metrics
+
+Monitor critical application metrics via **Prometheus** at http://localhost:9090:
+
+```promql
+# Request rate by endpoint
+sum(rate(http_requests_total[5m])) by (http_route)
+
+# 95th percentile response time
+histogram_quantile(0.95, rate(http_request_duration_ms_bucket[5m]))
+
+# Error rate percentage
+(rate(http_requests_total{status_code=~"5.."}[5m]) / rate(http_requests_total[5m])) * 100
+```
+
+### 🎯 Quick Monitoring Commands
+
+```bash
+# Check all services status
+make status
+
+# View live metrics
+curl http://localhost:9001/metrics
+
+# Test tracing
+curl -H "X-Trace-Id: test-123" http://localhost:3000/blog/posts
+```
+
+📚 **Detailed Documentation**: See [docs/OBSERVABILITY_ARCHITECTURE.md](docs/OBSERVABILITY_ARCHITECTURE.md) for complete observability setup and usage guide.
 
 ### Manual Setup
 

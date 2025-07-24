@@ -3,7 +3,7 @@ use crate::extractors::{
     RequireDomainAdmin, RequireDomainEditor, RequireDomainViewer, RequirePlatformAdmin,
 };
 use crate::services::session_tracking::SessionTracker;
-use crate::utils::FilteredQueryBuilder;
+use crate::utils::{AnalyticsSpan, DatabaseSpan, FilteredQueryBuilder, PerformanceSpan};
 use crate::{AppState, UserContext};
 use axum::{
     Extension, Router,
@@ -182,39 +182,42 @@ async fn create_post(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<CreatePostRequest>,
 ) -> Result<Json<AdminPostResponse>, StatusCode> {
-    let slug = payload.slug.unwrap_or_else(|| {
-        payload
-            .title
-            .to_lowercase()
-            .replace(" ", "-")
-            .chars()
-            .filter(|c| c.is_alphanumeric() || *c == '-')
-            .collect()
-    });
+    DatabaseSpan::execute("create_post", "posts", async {
+        let slug = payload.slug.unwrap_or_else(|| {
+            payload
+                .title
+                .to_lowercase()
+                .replace(" ", "-")
+                .chars()
+                .filter(|c| c.is_alphanumeric() || *c == '-')
+                .collect()
+        });
 
-    let status = payload.status.unwrap_or_else(|| "draft".to_string());
+        let status = payload.status.unwrap_or_else(|| "draft".to_string());
 
-    let post = sqlx::query_as!(
-        AdminPostResponse,
-        r#"
-        INSERT INTO posts (domain_id, title, content, author, category, slug, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id, title, content, author, category, slug, status, 
-                  domain_id as "domain_id!", NULL as "domain_name?", created_at, updated_at
-        "#,
-        auth.domain.id,
-        payload.title,
-        payload.content,
-        auth.user.name,
-        payload.category,
-        slug,
-        status
-    )
-    .fetch_one(&state.db)
+        let post = sqlx::query_as!(
+            AdminPostResponse,
+            r#"
+            INSERT INTO posts (domain_id, title, content, author, category, slug, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id, title, content, author, category, slug, status, 
+                      domain_id as "domain_id!", NULL as "domain_name?", created_at, updated_at
+            "#,
+            auth.domain.id,
+            payload.title,
+            payload.content,
+            auth.user.name,
+            payload.category,
+            slug,
+            status
+        )
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        Ok(Json(post))
+    })
     .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    Ok(Json(post))
 }
 
 async fn get_admin_post(
@@ -248,41 +251,44 @@ async fn update_post(
     Path(id): Path<i32>,
     Json(payload): Json<CreatePostRequest>,
 ) -> Result<Json<AdminPostResponse>, StatusCode> {
-    let slug = payload.slug.unwrap_or_else(|| {
-        payload
-            .title
-            .to_lowercase()
-            .replace(" ", "-")
-            .chars()
-            .filter(|c| c.is_alphanumeric() || *c == '-')
-            .collect()
-    });
+    DatabaseSpan::execute("update_post", "posts", async {
+        let slug = payload.slug.unwrap_or_else(|| {
+            payload
+                .title
+                .to_lowercase()
+                .replace(" ", "-")
+                .chars()
+                .filter(|c| c.is_alphanumeric() || *c == '-')
+                .collect()
+        });
 
-    let status = payload.status.unwrap_or_else(|| "draft".to_string());
+        let status = payload.status.unwrap_or_else(|| "draft".to_string());
 
-    let post = sqlx::query_as!(
-        AdminPostResponse,
-        r#"
+        let post = sqlx::query_as!(
+            AdminPostResponse,
+            r#"
         UPDATE posts 
         SET title = $3, content = $4, category = $5, slug = $6, status = $7, updated_at = NOW()
         WHERE id = $1 AND domain_id = $2
         RETURNING id, title, content, author, category, slug, status, 
                   domain_id as "domain_id!", NULL as "domain_name?", created_at, updated_at
         "#,
-        id,
-        auth.domain.id,
-        payload.title,
-        payload.content,
-        payload.category,
-        slug,
-        status
-    )
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-    .ok_or(StatusCode::NOT_FOUND)?;
+            id,
+            auth.domain.id,
+            payload.title,
+            payload.content,
+            payload.category,
+            slug,
+            status
+        )
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
-    Ok(Json(post))
+        Ok(Json(post))
+    })
+    .await
 }
 
 async fn delete_post(
@@ -511,6 +517,7 @@ async fn list_domains(
     _auth: RequirePlatformAdmin,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<DomainResponse>>, StatusCode> {
+    DatabaseSpan::execute("list_domains", "domains", async {
     let domains = sqlx::query_as!(
         DomainResponse,
         r#"
@@ -537,6 +544,8 @@ async fn list_domains(
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(domains))
+    })
+    .await
 }
 
 async fn get_domain(
@@ -916,23 +925,28 @@ async fn get_admin_analytics_overview(
     State(state): State<Arc<AppState>>,
     Query(query): Query<AdminAnalyticsQuery>,
 ) -> Result<Json<AdminAnalyticsOverview>, StatusCode> {
-    let (start_date, end_date) = parse_admin_date_range(&query);
-    let previous_start = start_date - (end_date - start_date);
+    PerformanceSpan::monitor("admin_analytics_overview", async {
+        let (start_date, end_date) = parse_admin_date_range(&query);
+        let previous_start = start_date - (end_date - start_date);
 
-    // Get real session duration data (fallback to mock while migration is pending)
-    let current_avg_session_duration =
-        SessionTracker::get_average_session_duration(&state.db, start_date, end_date, None)
-            .await
-            .unwrap_or(3.5);
+        // Get real session duration data (fallback to mock while migration is pending)
+        let current_avg_session_duration =
+            SessionTracker::get_average_session_duration(&state.db, start_date, end_date, None)
+                .await
+                .unwrap_or(3.5);
 
-    let previous_avg_session_duration =
-        SessionTracker::get_average_session_duration(&state.db, previous_start, start_date, None)
-            .await
-            .unwrap_or(3.2);
+        let previous_avg_session_duration = SessionTracker::get_average_session_duration(
+            &state.db,
+            previous_start,
+            start_date,
+            None,
+        )
+        .await
+        .unwrap_or(3.2);
 
-    // Current period stats across all domains
-    let current_stats = sqlx::query!(
-        r#"
+        // Current period stats across all domains
+        let current_stats = sqlx::query!(
+            r#"
         SELECT 
             COUNT(*) FILTER (WHERE event_type = 'page_view') as page_views,
             COUNT(*) FILTER (WHERE event_type = 'post_view') as post_views,
@@ -941,16 +955,16 @@ async fn get_admin_analytics_overview(
         FROM analytics_events 
         WHERE created_at BETWEEN $1 AND $2
         "#,
-        start_date,
-        end_date
-    )
-    .fetch_one(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            start_date,
+            end_date
+        )
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Previous period stats for comparison
-    let previous_stats = sqlx::query!(
-        r#"
+        // Previous period stats for comparison
+        let previous_stats = sqlx::query!(
+            r#"
         SELECT 
             COUNT(*) FILTER (WHERE event_type = 'page_view') as page_views,
             COUNT(*) FILTER (WHERE event_type = 'post_view') as post_views,
@@ -959,16 +973,16 @@ async fn get_admin_analytics_overview(
         FROM analytics_events 
         WHERE created_at BETWEEN $1 AND $2
         "#,
-        previous_start,
-        start_date
-    )
-    .fetch_one(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            previous_start,
+            start_date
+        )
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Top posts across all domains
-    let top_posts_data = sqlx::query!(
-        r#"
+        // Top posts across all domains
+        let top_posts_data = sqlx::query!(
+            r#"
         SELECT p.id, p.title, p.slug, 
                COUNT(*) as views,
                COUNT(DISTINCT ae.ip_address) as unique_views
@@ -979,27 +993,27 @@ async fn get_admin_analytics_overview(
         ORDER BY views DESC
         LIMIT 10
         "#,
-        start_date,
-        end_date
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            start_date,
+            end_date
+        )
+        .fetch_all(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let top_posts = top_posts_data
-        .into_iter()
-        .map(|row| AdminPostStats {
-            id: row.id,
-            title: row.title,
-            slug: row.slug,
-            views: row.views.unwrap_or(0),
-            unique_views: row.unique_views.unwrap_or(0),
-        })
-        .collect();
+        let top_posts = top_posts_data
+            .into_iter()
+            .map(|row| AdminPostStats {
+                id: row.id,
+                title: row.title,
+                slug: row.slug,
+                views: row.views.unwrap_or(0),
+                unique_views: row.unique_views.unwrap_or(0),
+            })
+            .collect();
 
-    // Top categories across all domains
-    let top_categories_data = sqlx::query!(
-        r#"
+        // Top categories across all domains
+        let top_categories_data = sqlx::query!(
+            r#"
         SELECT p.category,
                COUNT(*) as views,
                COUNT(DISTINCT p.id) as posts_count
@@ -1010,86 +1024,89 @@ async fn get_admin_analytics_overview(
         ORDER BY views DESC
         LIMIT 5
         "#,
-        start_date,
-        end_date
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            start_date,
+            end_date
+        )
+        .fetch_all(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let top_categories = top_categories_data
-        .into_iter()
-        .map(|row| AdminCategoryStats {
-            category: if row.category.is_empty() {
-                "Uncategorized".to_string()
-            } else {
-                row.category
+        let top_categories = top_categories_data
+            .into_iter()
+            .map(|row| AdminCategoryStats {
+                category: if row.category.is_empty() {
+                    "Uncategorized".to_string()
+                } else {
+                    row.category
+                },
+                views: row.views.unwrap_or(0),
+                posts_count: row.posts_count.unwrap_or(0),
+            })
+            .collect();
+
+        // Calculate change percentages
+        let page_views_change = if previous_stats.page_views.unwrap_or(0) > 0 {
+            (current_stats.page_views.unwrap_or(0) as f64
+                - previous_stats.page_views.unwrap_or(0) as f64)
+                / previous_stats.page_views.unwrap_or(1) as f64
+                * 100.0
+        } else {
+            0.0
+        };
+
+        let unique_visitors_change = if previous_stats.unique_visitors.unwrap_or(0) > 0 {
+            (current_stats.unique_visitors.unwrap_or(0) as f64
+                - previous_stats.unique_visitors.unwrap_or(0) as f64)
+                / previous_stats.unique_visitors.unwrap_or(1) as f64
+                * 100.0
+        } else {
+            0.0
+        };
+
+        let post_views_change = if previous_stats.post_views.unwrap_or(0) > 0 {
+            (current_stats.post_views.unwrap_or(0) as f64
+                - previous_stats.post_views.unwrap_or(0) as f64)
+                / previous_stats.post_views.unwrap_or(1) as f64
+                * 100.0
+        } else {
+            0.0
+        };
+
+        let searches_change = if previous_stats.searches.unwrap_or(0) > 0 {
+            (current_stats.searches.unwrap_or(0) as f64
+                - previous_stats.searches.unwrap_or(0) as f64)
+                / previous_stats.searches.unwrap_or(1) as f64
+                * 100.0
+        } else {
+            0.0
+        };
+
+        Ok(Json(AdminAnalyticsOverview {
+            current_period: AdminPeriodStats {
+                page_views: current_stats.page_views.unwrap_or(0),
+                unique_visitors: current_stats.unique_visitors.unwrap_or(0),
+                post_views: current_stats.post_views.unwrap_or(0),
+                searches: current_stats.searches.unwrap_or(0),
+                avg_session_duration: current_avg_session_duration,
             },
-            views: row.views.unwrap_or(0),
-            posts_count: row.posts_count.unwrap_or(0),
-        })
-        .collect();
-
-    // Calculate change percentages
-    let page_views_change = if previous_stats.page_views.unwrap_or(0) > 0 {
-        (current_stats.page_views.unwrap_or(0) as f64
-            - previous_stats.page_views.unwrap_or(0) as f64)
-            / previous_stats.page_views.unwrap_or(1) as f64
-            * 100.0
-    } else {
-        0.0
-    };
-
-    let unique_visitors_change = if previous_stats.unique_visitors.unwrap_or(0) > 0 {
-        (current_stats.unique_visitors.unwrap_or(0) as f64
-            - previous_stats.unique_visitors.unwrap_or(0) as f64)
-            / previous_stats.unique_visitors.unwrap_or(1) as f64
-            * 100.0
-    } else {
-        0.0
-    };
-
-    let post_views_change = if previous_stats.post_views.unwrap_or(0) > 0 {
-        (current_stats.post_views.unwrap_or(0) as f64
-            - previous_stats.post_views.unwrap_or(0) as f64)
-            / previous_stats.post_views.unwrap_or(1) as f64
-            * 100.0
-    } else {
-        0.0
-    };
-
-    let searches_change = if previous_stats.searches.unwrap_or(0) > 0 {
-        (current_stats.searches.unwrap_or(0) as f64 - previous_stats.searches.unwrap_or(0) as f64)
-            / previous_stats.searches.unwrap_or(1) as f64
-            * 100.0
-    } else {
-        0.0
-    };
-
-    Ok(Json(AdminAnalyticsOverview {
-        current_period: AdminPeriodStats {
-            page_views: current_stats.page_views.unwrap_or(0),
-            unique_visitors: current_stats.unique_visitors.unwrap_or(0),
-            post_views: current_stats.post_views.unwrap_or(0),
-            searches: current_stats.searches.unwrap_or(0),
-            avg_session_duration: current_avg_session_duration,
-        },
-        previous_period: AdminPeriodStats {
-            page_views: previous_stats.page_views.unwrap_or(0),
-            unique_visitors: previous_stats.unique_visitors.unwrap_or(0),
-            post_views: previous_stats.post_views.unwrap_or(0),
-            searches: previous_stats.searches.unwrap_or(0),
-            avg_session_duration: previous_avg_session_duration,
-        },
-        change_percent: AdminChangePercent {
-            page_views: page_views_change,
-            unique_visitors: unique_visitors_change,
-            post_views: post_views_change,
-            searches: searches_change,
-        },
-        top_posts,
-        top_categories,
-    }))
+            previous_period: AdminPeriodStats {
+                page_views: previous_stats.page_views.unwrap_or(0),
+                unique_visitors: previous_stats.unique_visitors.unwrap_or(0),
+                post_views: previous_stats.post_views.unwrap_or(0),
+                searches: previous_stats.searches.unwrap_or(0),
+                avg_session_duration: previous_avg_session_duration,
+            },
+            change_percent: AdminChangePercent {
+                page_views: page_views_change,
+                unique_visitors: unique_visitors_change,
+                post_views: post_views_change,
+                searches: searches_change,
+            },
+            top_posts,
+            top_categories,
+        }))
+    })
+    .await
 }
 
 // Admin Traffic Stats
@@ -1228,46 +1245,47 @@ async fn get_admin_search_analytics(
     State(state): State<Arc<AppState>>,
     Query(query): Query<AdminAnalyticsQuery>,
 ) -> Result<Json<AdminSearchAnalyticsResponse>, StatusCode> {
-    if user.role != "platform_admin" {
-        return Err(StatusCode::FORBIDDEN);
-    }
+    AnalyticsSpan::track_search("admin_search_analytics", async {
+        if user.role != "platform_admin" {
+            return Err(StatusCode::FORBIDDEN);
+        }
 
-    let (start_date, end_date) = parse_admin_date_range(&query);
+        let (start_date, end_date) = parse_admin_date_range(&query);
 
-    // Popular search terms
-    let search_data = sqlx::query!(
-        r#"
-        SELECT 
-            metadata->>'query' as query,
-            COUNT(*) as count,
-            BOOL_OR((metadata->>'results_count')::int > 0) as results_found
-        FROM analytics_events 
-        WHERE created_at BETWEEN $1 AND $2 AND event_type = 'search'
-        GROUP BY metadata->>'query'
-        ORDER BY count DESC
-        LIMIT 20
-        "#,
-        start_date,
-        end_date
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        // Popular search terms
+        let search_data = sqlx::query!(
+            r#"
+            SELECT 
+                metadata->>'query' as query,
+                COUNT(*) as count,
+                BOOL_OR((metadata->>'results_count')::int > 0) as results_found
+            FROM analytics_events 
+            WHERE created_at BETWEEN $1 AND $2 AND event_type = 'search'
+            GROUP BY metadata->>'query'
+            ORDER BY count DESC
+            LIMIT 20
+            "#,
+            start_date,
+            end_date
+        )
+        .fetch_all(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let popular_terms = search_data
-        .into_iter()
-        .filter_map(|row| {
-            row.query.map(|query| AdminSearchTerm {
-                query,
-                count: row.count.unwrap_or(0),
-                results_found: row.results_found.unwrap_or(false),
+        let popular_terms = search_data
+            .into_iter()
+            .filter_map(|row| {
+                row.query.map(|query| AdminSearchTerm {
+                    query,
+                    count: row.count.unwrap_or(0),
+                    results_found: row.results_found.unwrap_or(false),
+                })
             })
-        })
-        .collect();
+            .collect();
 
-    // Search volume trend
-    let trend_data = sqlx::query!(
-        r#"
+        // Search volume trend
+        let trend_data = sqlx::query!(
+            r#"
         SELECT 
             DATE(created_at) as date,
             COUNT(*) as searches
@@ -1276,24 +1294,24 @@ async fn get_admin_search_analytics(
         GROUP BY DATE(created_at)
         ORDER BY date
         "#,
-        start_date,
-        end_date
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            start_date,
+            end_date
+        )
+        .fetch_all(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let search_volume_trend = trend_data
-        .into_iter()
-        .map(|row| AdminSearchVolumeDay {
-            date: row.date.unwrap().format("%Y-%m-%d").to_string(),
-            searches: row.searches.unwrap_or(0),
-        })
-        .collect();
+        let search_volume_trend = trend_data
+            .into_iter()
+            .map(|row| AdminSearchVolumeDay {
+                date: row.date.unwrap().format("%Y-%m-%d").to_string(),
+                searches: row.searches.unwrap_or(0),
+            })
+            .collect();
 
-    // No results queries
-    let no_results_data = sqlx::query!(
-        r#"
+        // No results queries
+        let no_results_data = sqlx::query!(
+            r#"
         SELECT 
             metadata->>'query' as query,
             COUNT(*) as count
@@ -1305,29 +1323,31 @@ async fn get_admin_search_analytics(
         ORDER BY count DESC
         LIMIT 10
         "#,
-        start_date,
-        end_date
-    )
-    .fetch_all(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            start_date,
+            end_date
+        )
+        .fetch_all(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let no_results_queries = no_results_data
-        .into_iter()
-        .filter_map(|row| {
-            row.query.map(|query| AdminSearchTerm {
-                query,
-                count: row.count.unwrap_or(0),
-                results_found: false,
+        let no_results_queries = no_results_data
+            .into_iter()
+            .filter_map(|row| {
+                row.query.map(|query| AdminSearchTerm {
+                    query,
+                    count: row.count.unwrap_or(0),
+                    results_found: false,
+                })
             })
-        })
-        .collect();
+            .collect();
 
-    Ok(Json(AdminSearchAnalyticsResponse {
-        popular_terms,
-        search_volume_trend,
-        no_results_queries,
-    }))
+        Ok(Json(AdminSearchAnalyticsResponse {
+            popular_terms,
+            search_volume_trend,
+            no_results_queries,
+        }))
+    })
+    .await
 }
 
 // Admin Referrer Stats
@@ -1487,6 +1507,7 @@ async fn list_users(
     State(state): State<Arc<AppState>>,
     Query(params): Query<UsersQuery>,
 ) -> Result<Json<UsersResponse>, StatusCode> {
+    DatabaseSpan::execute("list_users", "users", async {
     let page = params.page.unwrap_or(1).max(1);
     let per_page = params.per_page.unwrap_or(20).clamp(1, 100) as i64;
     let offset = ((page - 1) * (per_page as i32)) as i64;
@@ -1566,6 +1587,8 @@ async fn list_users(
         page,
         per_page: per_page as i32,
     }))
+    })
+    .await
 }
 
 // Create a new user

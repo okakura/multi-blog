@@ -11,7 +11,9 @@ use std::sync::Arc;
 // Module declarations
 pub mod extractors;
 pub mod handlers;
+pub mod middleware;
 pub mod services;
+pub mod telemetry;
 pub mod utils;
 
 #[cfg(test)]
@@ -87,7 +89,15 @@ pub async fn domain_middleware(
         .unwrap_or("localhost")
         .to_string();
 
-    println!("🔍 Domain middleware: Looking for hostname '{}'", hostname);
+    let span = tracing::info_span!(
+        "domain_middleware",
+        hostname = %hostname,
+        domain_id = tracing::field::Empty,
+        domain_name = tracing::field::Empty,
+    );
+
+    let _guard = span.enter();
+    tracing::debug!("Looking up domain for hostname");
 
     // Query domain from database
     let domain_db = sqlx::query_as::<_, DomainContextDb>(
@@ -102,13 +112,16 @@ pub async fn domain_middleware(
     .fetch_optional(&state.db)
     .await
     .map_err(|e| {
-        println!("❌ Database error in domain middleware: {}", e);
+        tracing::error!(error = %e, "Database error in domain middleware");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
     let domain = match domain_db {
         Some(d) => {
-            println!("✅ Found domain: {} ({})", d.name, d.hostname);
+            span.record("domain_id", d.id);
+            span.record("domain_name", &d.name);
+            tracing::info!(domain_id = d.id, domain_name = %d.name, "Domain found");
+
             // Parse categories JSON into Vec<String>
             let categories = d
                 .categories
@@ -127,7 +140,7 @@ pub async fn domain_middleware(
             }
         }
         None => {
-            println!("❌ Domain not found: '{}'", hostname);
+            tracing::warn!("Domain not found for hostname");
             return Err(StatusCode::NOT_FOUND);
         }
     };
@@ -144,7 +157,14 @@ pub async fn analytics_middleware(
     mut request: Request,
     next: Next,
 ) -> Response {
-    println!("🔍 Analytics middleware: Processing request");
+    let span = tracing::info_span!(
+        "analytics_middleware",
+        ip_address = tracing::field::Empty,
+        user_agent = tracing::field::Empty,
+        has_referrer = tracing::field::Empty,
+    );
+
+    let _guard = span.enter();
 
     let user_agent = headers
         .get("user-agent")
@@ -172,17 +192,20 @@ pub async fn analytics_middleware(
         referrer: referrer.clone(),
     };
 
-    println!(
-        "✅ Analytics context: IP={}, UA={}, Referrer={:?}",
-        ip_address, user_agent, referrer
-    );
+    span.record("ip_address", &ip_address);
+    span.record("user_agent", &user_agent);
+    span.record("has_referrer", referrer.is_some());
 
+    tracing::debug!("Analytics context extracted");
+
+    // Store the analytics context in request extensions
     request.extensions_mut().insert(analytics_ctx);
 
-    println!("🔍 Analytics middleware: Calling next handler");
+    tracing::debug!("Calling next handler");
     let response = next.run(request).await;
-    println!("✅ Analytics middleware: Handler completed");
+    tracing::debug!("Handler completed");
 
+    crate::telemetry::record_analytics_event("request_processed");
     response
 }
 
@@ -193,7 +216,16 @@ pub async fn auth_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    println!("🔐 Auth middleware: Starting authentication check");
+    let span = tracing::info_span!(
+        "auth_middleware",
+        user_id = tracing::field::Empty,
+        user_email = tracing::field::Empty,
+        has_token = tracing::field::Empty,
+        permissions_count = tracing::field::Empty,
+    );
+
+    let _guard = span.enter();
+    tracing::debug!("Starting authentication check");
 
     let token = headers
         .get("authorization")
@@ -202,11 +234,14 @@ pub async fn auth_middleware(
 
     let token = match token {
         Some(t) => {
-            println!("🔐 Auth middleware: Found token: {}", &t[..20.min(t.len())]);
+            span.record("has_token", true);
+            tracing::debug!(token_prefix = %&t[..20.min(t.len())], "Found authorization token");
             t
         }
         None => {
-            println!("❌ Auth middleware: No token provided");
+            span.record("has_token", false);
+            tracing::warn!("No authorization token provided");
+            crate::telemetry::record_auth_metrics("missing_token", false);
             return Err(StatusCode::UNAUTHORIZED);
         }
     };
@@ -214,11 +249,14 @@ pub async fn auth_middleware(
     // Validate JWT and get user claims
     let claims = match crate::handlers::auth::validate_jwt_token(token) {
         Ok(claims) => {
-            println!("✅ Auth middleware: Token valid for user: {}", claims.sub);
+            span.record("user_email", &claims.sub);
+            tracing::info!(user_email = %claims.sub, "Token validation successful");
+            crate::telemetry::record_auth_metrics("token_validation", true);
             claims
         }
         Err(e) => {
-            println!("❌ Auth middleware: Token validation failed: {}", e);
+            tracing::error!(error = %e, "Token validation failed");
+            crate::telemetry::record_auth_metrics("token_validation", false);
             return Err(StatusCode::UNAUTHORIZED);
         }
     };
@@ -232,14 +270,18 @@ pub async fn auth_middleware(
     .fetch_optional(&state.db)
     .await
     .map_err(|e| {
-        println!("❌ Auth middleware: Database error: {}", e);
+        tracing::error!(error = %e, "Database error while fetching user");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
     let user = match user {
-        Some(u) => u,
+        Some(u) => {
+            span.record("user_id", u.id);
+            u
+        }
         None => {
-            println!("❌ Auth middleware: User not found in database");
+            tracing::warn!(user_email = %claims.sub, "User not found in database");
+            crate::telemetry::record_auth_metrics("user_lookup", false);
             return Err(StatusCode::UNAUTHORIZED);
         }
     };
@@ -252,7 +294,7 @@ pub async fn auth_middleware(
     .fetch_all(&state.db)
     .await
     .map_err(|e| {
-        println!("❌ Auth middleware: Error fetching permissions: {}", e);
+        tracing::error!(error = %e, user_id = user.id, "Error fetching user permissions");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -262,21 +304,27 @@ pub async fn auth_middleware(
             domain_id: row.domain_id.unwrap_or(0),
             role: row.role,
         })
-        .collect();
+        .collect::<Vec<_>>();
+
+    span.record("permissions_count", domain_permissions.len());
 
     // Create user context with real data from database
     let user_context = UserContext {
         id: user.id,
-        email: user.email,
+        email: user.email.clone(),
         name: user.name,
         role: user.role.unwrap_or_default(),
         domain_permissions,
     };
 
-    println!(
-        "✅ Auth middleware: Created user context for: {}",
-        user_context.email
+    tracing::info!(
+        user_id = user_context.id,
+        user_email = %user_context.email,
+        user_role = %user_context.role,
+        "Authentication successful, user context created"
     );
+
+    crate::telemetry::record_auth_metrics("authentication", true);
     request.extensions_mut().insert(user_context);
 
     Ok(next.run(request).await)

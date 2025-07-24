@@ -1,12 +1,17 @@
 use api::{
     AppState, analytics_middleware, auth_middleware, domain_middleware,
     handlers::{HandlerModule, admin::AdminModule, analytics, auth, blog::BlogModule, session},
+    middleware::{
+        error_tracking_middleware, http_tracing_middleware, performance_monitoring_middleware,
+    },
+    telemetry::{TelemetryConfig, init_telemetry},
 };
 
 use axum::{Router, middleware, response::Html};
 use std::{env, sync::Arc};
 use tokio::net::TcpListener;
 use tower_http::cors::{AllowOrigin, CorsLayer};
+use tracing::info;
 use utoipa::OpenApi;
 
 async fn swagger_ui_handler() -> Html<&'static str> {
@@ -59,31 +64,62 @@ async fn health_check(state: Arc<AppState>) -> axum::Json<serde_json::Value> {
     }))
 }
 
+async fn metrics_handler() -> Result<axum::response::Response, axum::http::StatusCode> {
+    match std::env::var("ENABLE_METRICS") {
+        Ok(_) => {
+            let metrics_text = api::telemetry::get_metrics();
+            Ok(axum::response::Response::builder()
+                .status(200)
+                .header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+                .body(metrics_text.into())
+                .unwrap())
+        }
+        _ => Ok(axum::response::Response::builder()
+            .status(200)
+            .header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+            .body("# Metrics collection disabled\n".into())
+            .unwrap()),
+    }
+}
+
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Load environment variables
     dotenvy::dotenv().ok();
 
-    // Initialize tracing
-    tracing_subscriber::fmt::init();
+    // Initialize telemetry
+    let telemetry_config = TelemetryConfig::default();
+    if let Err(e) = init_telemetry(telemetry_config) {
+        eprintln!("Failed to initialize telemetry: {e}");
+        return Err(e);
+    }
+
+    info!("Starting multi-blog API server");
 
     // Connect to database
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     let pool = sqlx::PgPool::connect(&database_url).await?;
+    info!("Database connection established");
 
     // Run migrations
     sqlx::migrate!("./migrations").run(&pool).await?;
+    info!("Database migrations completed");
 
     let state = Arc::new(AppState { db: pool });
     let app = create_app(state);
 
     let port = env::var("PORT").unwrap_or_else(|_| "8000".to_string());
     let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-    let bind_address = format!("{}:{}", host, port);
+    let bind_address = format!("{host}:{port}");
 
     let listener = TcpListener::bind(&bind_address).await?;
-    println!("🚀 Server running on http://localhost:{}", port);
+    info!(
+        port = %port,
+        host = %host,
+        "Server starting on http://localhost:{}",
+        port
+    );
 
     axum::serve(listener, app).await?;
     Ok(())
@@ -119,6 +155,8 @@ pub fn create_app(state: Arc<AppState>) -> Router {
         )
         // Add Swagger UI route
         .route("/swagger-ui", axum::routing::get(swagger_ui_handler))
+        // Add metrics endpoint for Prometheus scraping
+        .route("/metrics", axum::routing::get(metrics_handler))
         // Mount auth routes (no middleware required, with CORS)
         .nest("/auth", auth::auth_router())
         // Mount blog module (public routes with domain + analytics middleware)
@@ -202,6 +240,10 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                     auth_middleware,
                 )),
         )
+        // Add HTTP tracing middleware for all routes
+        .layer(middleware::from_fn(http_tracing_middleware))
+        .layer(middleware::from_fn(performance_monitoring_middleware))
+        .layer(middleware::from_fn(error_tracking_middleware))
         // Add CORS layer for all routes
         .layer({
             let cors_origins = env::var("CORS_ORIGINS")

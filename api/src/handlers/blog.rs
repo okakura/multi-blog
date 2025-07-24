@@ -1,4 +1,5 @@
 // src/handlers/blog.rs
+use crate::utils::{AnalyticsSpan, BusinessSpan, DatabaseSpan};
 use crate::{AnalyticsContext, AppState, DomainContext};
 use axum::{
     Extension, Router,
@@ -10,6 +11,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use std::sync::Arc;
+use tracing::{info, instrument, warn};
 use utoipa::{IntoParams, OpenApi, ToSchema};
 
 pub struct BlogModule;
@@ -255,49 +257,90 @@ async fn list_posts(
     ),
     tag = "blog"
 )]
+#[instrument(
+    skip(state, domain, analytics),
+    fields(
+        blog.slug = %slug,
+        blog.domain = %domain.name,
+        blog.domain_id = %domain.id,
+        blog.post_found = false,
+        blog.post_title,
+        blog.post_id,
+        http.method = "GET",
+        http.route = "/posts/{slug}"
+    )
+)]
 async fn get_post(
     Extension(domain): Extension<DomainContext>,
     Extension(analytics): Extension<AnalyticsContext>,
     State(state): State<Arc<AppState>>,
     Path(slug): Path<String>,
 ) -> Result<Json<PostResponse>, StatusCode> {
-    println!(
-        "🔍 Looking for post with slug: {} in domain: {}",
+    // Add request context to span
+    BusinessSpan::add_request_context("", "GET", &format!("/posts/{}", slug));
+
+    info!(
+        "Looking for post with slug: {} in domain: {}",
         slug, domain.name
     );
 
-    let post = sqlx::query_as::<_, PostResponse>(
-        r#"
-        SELECT id, title, content, author, category, slug, created_at
-        FROM posts 
-        WHERE domain_id = $1 AND slug = $2 AND status = 'published'
-        "#,
-    )
-    .bind(domain.id)
-    .bind(&slug)
-    .fetch_optional(&state.db)
+    // Wrap database query with tracing
+    let post = DatabaseSpan::execute("SELECT", "posts", async {
+        sqlx::query_as::<_, PostResponse>(
+            r#"
+                SELECT id, title, content, author, category, slug, created_at
+                FROM posts 
+                WHERE domain_id = $1 AND slug = $2 AND status = 'published'
+                "#,
+        )
+        .bind(domain.id)
+        .bind(&slug)
+        .fetch_optional(&state.db)
+        .await
+    })
     .await
     .map_err(|e| {
-        println!("❌ Database error: {e}");
+        warn!("Database error retrieving post: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
     let post = match post {
         Some(p) => {
-            println!("✅ Found post: {}", p.title);
+            // Record successful retrieval in span
+            BusinessSpan::add_attribute("blog.post_found", "true");
+            BusinessSpan::add_attribute("blog.post_title", &p.title);
+            BusinessSpan::add_attribute("blog.post_id", &p.id.to_string());
+
+            info!("Found post: '{}' (ID: {})", p.title, p.id);
             p
         }
         None => {
-            println!("❌ Post not found");
+            warn!("Post not found for slug: {}", slug);
             return Err(StatusCode::NOT_FOUND);
         }
     };
 
-    // Try simplified analytics logging
-    if let Err(e) = log_page_view(&state, &domain, &analytics, &format!("/posts/{}", slug)).await {
-        println!("⚠️ Analytics logging failed, but continuing: {:?}", e);
-    }
+    // Track page view with analytics tracing
+    BusinessSpan::execute("log_page_view", async {
+        log_page_view(&state, &domain, &analytics, &format!("/posts/{}", slug)).await
+    })
+    .await
+    .unwrap_or_else(|e| {
+        warn!("Analytics logging failed: {:?}", e);
+    });
 
+    // Track the analytics event with detailed context
+    let event_data = serde_json::json!({
+        "post_id": post.id,
+        "post_title": post.title,
+        "post_slug": slug,
+        "domain": domain.name,
+        "category": post.category
+    });
+
+    AnalyticsSpan::track_event("post_view", None, event_data);
+
+    info!("Successfully retrieved and returning post: {}", post.title);
     Ok(Json(post))
 }
 
@@ -484,7 +527,7 @@ async fn log_page_view(
     .execute(&state.db)
     .await
     .map_err(|e| {
-        println!("❌ Analytics logging error: {e}");
+        tracing::error!(error = %e, "Analytics logging error");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
