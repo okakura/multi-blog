@@ -1,0 +1,10 @@
+{
+  "installation": {
+    "version": "21.3.5"
+  },
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "nxCloudId": "68826f430e4a9139ff7fce49",
+  "plugins": [
+    "@monodon/rust"
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "makefile.configureOnOpen": false,
+  
+  // Performance optimizations to reduce VS Code lag
+  "extensions.autoUpdate": false,
+  "extensions.autoCheckUpdates": false,
+  "workbench.enableExperiments": false,
+  "telemetry.telemetryLevel": "off",
+  "workbench.settings.enableNaturalLanguageSearch": false,
+  "update.mode": "manual",
+  
+  // TypeScript settings
+  "typescript.preferences.includePackageJsonAutoImports": "auto",
+  "typescript.suggest.autoImports": true,
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "typescript.disableAutomaticTypeAcquisition": true,
+  "typescript.suggest.completeFunctionCalls": true,
+  "typescript.preferences.experimentalDecorators": true,
+  
+  // Biome (your linter/formatter)
+  "editor.defaultFormatter": "biomejs.biome",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "quickfix.biome": "explicit",
+    "source.organizeImports.biome": "explicit"
+  },
+  
+  // Tailwind CSS
+  "tailwindCSS.includeLanguages": {
+    "typescript": "javascript",
+    "typescriptreact": "javascript"
+  },
+  "tailwindCSS.experimental.classRegex": [
+    ["clsx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"],
+    ["className\\s*=\\s*['\"`]([^'\"`]*)['\"`]"]
+  ],
+  
+  // File associations
+  "files.associations": {
+    "*.tsx": "typescriptreact",
+    "*.ts": "typescript",
+    "Makefile": "makefile"
+  },
+  
+  // Rust settings (for your backend)
+  "rust-analyzer.cargo.buildScripts.enable": true,
+  "rust-analyzer.checkOnSave": true,
+  "rust-analyzer.check.command": "clippy",
+  "rust-analyzer.procMacro.enable": true,
+  "rust-analyzer.inlayHints.enable": true,
+  
+  // Git settings
+  "git.autofetch": true,
+  "git.enableSmartCommit": true,
+  
+  // React/JSX settings
+  "emmet.includeLanguages": {
+    "typescriptreact": "html",
+    "javascript": "html"
+  },
+  
+  // Terminal settings
+  "terminal.integrated.defaultProfile.osx": "zsh",
+  
+  // Search settings - exclude build artifacts and dependencies
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/target": true,
+    "**/dist": true,
+    "**/.git": true,
+    "**/coverage": true,
+    "**/.rsbuild": true,
+    "**/.swc": true,
+    "**/pnpm-lock.yaml": true,
+    "**/.next": true,
+    "**/build": true
+  },
+  
+  // File explorer settings - nest related files
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.patterns": {
+    "package.json": "package-lock.json,pnpm-lock.yaml,yarn.lock,bun.lockb",
+    "tsconfig.json": "tsconfig.*.json",
+    "*.tsx": "${capture}.test.tsx,${capture}.spec.tsx,${capture}.stories.tsx",
+    "*.ts": "${capture}.test.ts,${capture}.spec.ts",
+    "rsbuild.config.ts": "rsbuild.config.js,rsbuild.config.mjs",
+    "tailwind.config.js": "postcss.config.js,postcss.config.mjs",
+    "Cargo.toml": "Cargo.lock"
+  },
+  
+  // Editor performance optimizations
+  "editor.suggest.snippetsPreventQuickSuggestions": false,
+  "editor.suggest.localityBonus": true,
+  "editor.semanticTokenColorCustomizations": {},
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": true,
+  
+  // Disable resource-heavy features
+  "breadcrumbs.enabled": true,
+  "editor.minimap.enabled": false,
+  "workbench.statusBar.visible": true,
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  },
+  "cSpell.words": [
+    "chrono",
+    "sqlx",
+    "utoipa"
+  ]
+}

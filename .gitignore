@@ -1,12 +1,16 @@
 # Dependencies
 node_modules/
-*/node_modules/
+.pnp
+.pnp.js
+jspm_packages/
 
 # Production builds
 dist/
 build/
+out/
 */dist/
 */build/
+*/out/
 
 # Environment variables
 .env
@@ -14,16 +18,27 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
-api/.env
+.env.*.local
+*/.env
+*/.env.local
 
 # Logs
-*.local
-*.log*
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # OS generated files
 .DS_Store
@@ -34,9 +49,12 @@ lerna-debug.log*
 ehthumbs.db
 Thumbs.db
 
-# Rust/Cargo (for API)
-api/target/
-api/Cargo.lock
+# Rust/Cargo
+target/
+**/target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
 
 # Database
 *.sqlite
@@ -44,28 +62,47 @@ api/Cargo.lock
 *.db
 .sqlx
 
-# IDE files
+# IDE and Editor files
 .vscode/*
 !.vscode/extensions.json
-.idea
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 *.swp
 *.swo
 *~
 
-# Build tools
+# TypeScript
+*.tsbuildinfo
+*.d.ts.map
+
+# Build tools and bundlers
 .rspack-profile-*/
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+.vite/
+.parcel-cache/
 
 # Cache
 .cache/
-.parcel-cache/
 .npm
 .eslintcache
 .stylelintcache
+.prettier-cache
 
-# Coverage
+# Coverage and testing
 coverage/
 *.lcov
 .nyc_output
+.jest/
 
 # Temporary files
 tmp/
@@ -73,7 +110,39 @@ temp/
 *.tmp
 *.temp
 
-# Optional files
+# Package managers
 .yarn-integrity
 .node_repl_history
 *.tgz
+.pnpm-debug.log*
+
+# Nx
+.nx/installation
+.nx/cache
+.nx/workspace-data
+
+# API keys and secrets
+secrets.json
+.secrets
+
+# Local development
+.local
+
+# Next.js (if used)
+.next/
+.vercel
+
+# Gatsby (if used)
+.cache/
+public/
+
+# Storybook (if used)
+.storybook-out/
+storybook-static/
+
+# Monitoring and telemetry
+*.trace
+
+# Custom rules and instructions
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
