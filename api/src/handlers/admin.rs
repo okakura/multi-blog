@@ -3,7 +3,8 @@ use crate::extractors::{
     RequireDomainAdmin, RequireDomainEditor, RequireDomainViewer, RequirePlatformAdmin,
 };
 use crate::services::session_tracking::SessionTracker;
-use crate::utils::{AnalyticsSpan, DatabaseSpan, FilteredQueryBuilder, PerformanceSpan};
+use crate::utils::{AnalyticsSpan, DatabaseSpan, PerformanceSpan};
+use crate::validation::{extractors::ValidatedJson, rules::*};
 use crate::{AppState, UserContext};
 use axum::{
     Extension, Router,
@@ -16,6 +17,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use std::sync::Arc;
+use validator::Validate;
 
 pub struct AdminModule;
 
@@ -65,6 +67,18 @@ struct CreatePostRequest {
     category: String,
     slug: Option<String>,
     status: Option<String>, // draft, published
+}
+
+impl Validate for CreatePostRequest {
+    fn validate(&self) -> Result<(), validator::ValidationErrors> {
+        crate::validation::custom::validate_create_post_request(
+            &self.title,
+            &self.content,
+            &self.category,
+            &self.slug,
+            &self.status,
+        )
+    }
 }
 
 #[derive(Serialize, sqlx::FromRow)]
@@ -180,7 +194,7 @@ async fn list_admin_posts(
 async fn create_post(
     RequireDomainEditor(auth): RequireDomainEditor,
     State(state): State<Arc<AppState>>,
-    Json(payload): Json<CreatePostRequest>,
+    ValidatedJson(payload): ValidatedJson<CreatePostRequest>,
 ) -> Result<Json<AdminPostResponse>, StatusCode> {
     DatabaseSpan::execute("create_post", "posts", async {
         let slug = payload.slug.unwrap_or_else(|| {
@@ -249,7 +263,7 @@ async fn update_post(
     RequireDomainEditor(auth): RequireDomainEditor,
     State(state): State<Arc<AppState>>,
     Path(id): Path<i32>,
-    Json(payload): Json<CreatePostRequest>,
+    ValidatedJson(payload): ValidatedJson<CreatePostRequest>,
 ) -> Result<Json<AdminPostResponse>, StatusCode> {
     DatabaseSpan::execute("update_post", "posts", async {
         let slug = payload.slug.unwrap_or_else(|| {
@@ -482,9 +496,15 @@ async fn update_domain_settings(
 }
 
 // Domain Management Structs
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Validate)]
 struct CreateDomainRequest {
+    #[validate(custom(function = "validate_hostname", message = "Invalid hostname format"))]
     hostname: String,
+    #[validate(length(
+        min = 1,
+        max = 100,
+        message = "Name must be between 1 and 100 characters"
+    ))]
     name: String,
     theme_config: Option<serde_json::Value>,
     categories: Option<Vec<String>>,
@@ -510,6 +530,12 @@ struct UpdateDomainRequest {
     name: Option<String>,
     theme_config: Option<serde_json::Value>,
     categories: Option<Vec<String>>,
+}
+
+impl Validate for UpdateDomainRequest {
+    fn validate(&self) -> Result<(), validator::ValidationErrors> {
+        crate::validation::custom::validate_update_domain_request(&self.hostname, &self.name)
+    }
 }
 
 // Domain Management Handlers
@@ -586,7 +612,7 @@ async fn get_domain(
 async fn create_domain(
     _auth: RequirePlatformAdmin,
     State(state): State<Arc<AppState>>,
-    Json(payload): Json<CreateDomainRequest>,
+    ValidatedJson(payload): ValidatedJson<CreateDomainRequest>,
 ) -> Result<Json<DomainResponse>, StatusCode> {
     // Validate hostname uniqueness
     let existing = sqlx::query!(
@@ -641,7 +667,7 @@ async fn update_domain(
     _auth: RequirePlatformAdmin,
     State(state): State<Arc<AppState>>,
     Path(id): Path<i32>,
-    Json(payload): Json<UpdateDomainRequest>,
+    ValidatedJson(payload): ValidatedJson<UpdateDomainRequest>,
 ) -> Result<Json<DomainResponse>, StatusCode> {
     // Check if domain exists
     let existing = sqlx::query!("SELECT hostname FROM domains WHERE id = $1", id)
@@ -1441,11 +1467,23 @@ async fn update_user_preferences(
 }
 
 // User Management Structs
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Validate)]
 struct CreateUserRequest {
+    #[validate(email(message = "Invalid email format"))]
+    #[validate(length(min = 1, message = "Email is required"))]
     email: String,
+    #[validate(length(
+        min = 1,
+        max = 100,
+        message = "Name must be between 1 and 100 characters"
+    ))]
     name: String,
+    #[validate(custom(
+        function = "validate_password_strength",
+        message = "Password does not meet security requirements"
+    ))]
     password: String,
+    #[validate(custom(function = "validate_user_role", message = "Invalid user role"))]
     role: String, // platform_admin or domain_user
     domain_permissions: Option<Vec<DomainPermissionInput>>,
 }
@@ -1459,9 +1497,24 @@ struct UpdateUserRequest {
     domain_permissions: Option<Vec<DomainPermissionInput>>,
 }
 
-#[derive(Serialize, Deserialize)]
+impl Validate for UpdateUserRequest {
+    fn validate(&self) -> Result<(), validator::ValidationErrors> {
+        crate::validation::custom::validate_update_user_request(
+            &self.email,
+            &self.name,
+            &self.password,
+            &self.role,
+        )
+    }
+}
+
+#[derive(Serialize, Deserialize, Validate)]
 struct DomainPermissionInput {
     domain_id: i32,
+    #[validate(custom(
+        function = "validate_domain_permission_role",
+        message = "Invalid domain permission role"
+    ))]
     role: String, // admin, editor, viewer, none
 }
 
@@ -1508,85 +1561,128 @@ async fn list_users(
     Query(params): Query<UsersQuery>,
 ) -> Result<Json<UsersResponse>, StatusCode> {
     DatabaseSpan::execute("list_users", "users", async {
-    let page = params.page.unwrap_or(1).max(1);
-    let per_page = params.per_page.unwrap_or(20).clamp(1, 100) as i64;
-    let offset = ((page - 1) * (per_page as i32)) as i64;
+        let page = params.page.unwrap_or(1).max(1);
+        let per_page = params.per_page.unwrap_or(20).clamp(1, 100) as i64;
+        let offset = ((page - 1) * (per_page as i32)) as i64;
 
-    // Store values we need to use multiple times
-    let role_filter = params.role.as_ref();
-    let search_filter = params.search.as_ref();
-    let search_pattern = search_filter.map(|s| format!("%{}%", s));
+        // Build the query with conditional WHERE clauses
+        let mut where_conditions = Vec::new();
+        let mut bind_values: Vec<String> = Vec::new();
 
-    let mut query_builder = FilteredQueryBuilder::new(
-        "SELECT id, email, name, role, created_at, updated_at FROM users",
-    );
+        if let Some(ref role) = params.role {
+            where_conditions.push(format!("role = ${}", bind_values.len() + 1));
+            bind_values.push(role.clone());
+        }
 
-    query_builder
-        .add_filter_if_some("role = ?", role_filter)
-        .add_search_filter(&["name", "email"], search_filter.cloned());
+        let _search_pattern = if let Some(ref search) = params.search {
+            let pattern = format!("%{search}%");
+            where_conditions.push(format!("(name ILIKE ${} OR email ILIKE ${})", bind_values.len() + 1, bind_values.len() + 1));
+            bind_values.push(pattern.clone());
+            Some(pattern)
+        } else {
+            None
+        };
 
-    let (query_str, query_params) = query_builder.build_with_pagination(per_page, offset);
-    let final_query = format!("{} ORDER BY created_at DESC", query_str);
+        let where_clause = if where_conditions.is_empty() {
+            String::new()
+        } else {
+            format!(" WHERE {}", where_conditions.join(" AND "))
+        };
 
-    // Manually bind parameters
-    let mut query = sqlx::query(&final_query);
-    for param in &query_params {
-        query = query.bind(param);
-    }
+        // Use raw sqlx::query instead of the macro to avoid type conflicts
+        let query_sql = format!(
+            "SELECT id, email, name, role, created_at, updated_at FROM users{} ORDER BY created_at DESC LIMIT ${} OFFSET ${}",
+            where_clause,
+            bind_values.len() + 1,
+            bind_values.len() + 2
+        );
 
-    let users_data = query
-        .fetch_all(&state.db)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let mut query = sqlx::query(&query_sql);
+        for value in &bind_values {
+            query = query.bind(value);
+        }
+        query = query.bind(per_page).bind(offset);
 
-    // Get total count with same filters (simpler approach)
-    let total = sqlx::query_scalar!(
-        "SELECT COUNT(*) FROM users WHERE ($1::text IS NULL OR role = $1) AND ($2::text IS NULL OR (name ILIKE $3 OR email ILIKE $3))",
-        params.role,
-        params.search,
-        search_pattern
-    )
-    .fetch_one(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-    .unwrap_or(0);
+        let users_data = query
+            .fetch_all(&state.db)
+            .await
+            .map_err(|e| {
+                tracing::error!("Database error in list_users: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
 
-    // Convert to response format with domain permissions
-    let mut users = Vec::new();
-    for user_data in users_data {
-        let user_id: i32 = user_data.get("id");
+        // Get total count
+        let count_sql = format!("SELECT COUNT(*) FROM users{where_clause}");
+        let mut count_query = sqlx::query_scalar::<_, i64>(&count_sql);
+        for value in &bind_values {
+            count_query = count_query.bind(value);
+        }
 
-        let domain_permissions = sqlx::query_as::<_, DomainPermissionResponse>(
-            r#"
-            SELECT udp.domain_id, d.name as domain_name, udp.role
-            FROM user_domain_permissions udp
-            LEFT JOIN domains d ON udp.domain_id = d.id
-            WHERE udp.user_id = $1
-            ORDER BY d.name
-            "#,
-        )
-        .bind(user_id)
-        .fetch_all(&state.db)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let total = count_query
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| {
+                tracing::error!("Database error in count query: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
 
-        users.push(UserResponse {
-            id: user_id,
-            email: user_data.get("email"),
-            name: user_data.get("name"),
-            role: user_data.get("role"),
-            created_at: user_data.get("created_at"),
-            updated_at: user_data.get("updated_at"),
-            domain_permissions,
-        });
-    }
+        // Convert to response format with domain permissions
+        let mut users = Vec::new();
+        for user_data in users_data {
+            let user_id: i32 = user_data.try_get("id").map_err(|e| {
+                tracing::error!("Error getting user id: {e}");
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
 
-    Ok(Json(UsersResponse {
-        users,
-        total,
-        page,
-        per_page: per_page as i32,
-    }))
+            let domain_permissions = sqlx::query_as::<_, DomainPermissionResponse>(
+                r#"
+                SELECT udp.domain_id, d.name as domain_name, udp.role
+                FROM user_domain_permissions udp
+                LEFT JOIN domains d ON udp.domain_id = d.id
+                WHERE udp.user_id = $1
+                ORDER BY d.name
+                "#,
+            )
+            .bind(user_id)
+            .fetch_all(&state.db)
+            .await
+            .map_err(|e| {
+                tracing::error!("Database error fetching domain permissions: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+            users.push(UserResponse {
+                id: user_id,
+                email: user_data.try_get("email").map_err(|e| {
+                    tracing::error!("Error getting email: {e}");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?,
+                name: user_data.try_get("name").map_err(|e| {
+                    tracing::error!("Error getting name: {e}");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?,
+                role: user_data.try_get("role").map_err(|e| {
+                    tracing::error!("Error getting role: {e}");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?,
+                created_at: user_data.try_get("created_at").map_err(|e| {
+                    tracing::error!("Error getting created_at: {e}");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?,
+                updated_at: user_data.try_get("updated_at").map_err(|e| {
+                    tracing::error!("Error getting updated_at: {e}");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?,
+                domain_permissions,
+            });
+        }
+
+        Ok(Json(UsersResponse {
+            users,
+            total,
+            page,
+            per_page: per_page as i32,
+        }))
     })
     .await
 }
@@ -1595,7 +1691,7 @@ async fn list_users(
 async fn create_user(
     Extension(user): Extension<UserContext>,
     State(state): State<Arc<AppState>>,
-    Json(payload): Json<CreateUserRequest>,
+    ValidatedJson(payload): ValidatedJson<CreateUserRequest>,
 ) -> Result<Json<UserResponse>, StatusCode> {
     // Only platform admins can create users
     if user.role != "platform_admin" {
@@ -1659,7 +1755,7 @@ async fn update_user(
     Extension(user): Extension<UserContext>,
     State(state): State<Arc<AppState>>,
     Path(user_id): Path<i32>,
-    Json(payload): Json<UpdateUserRequest>,
+    ValidatedJson(payload): ValidatedJson<UpdateUserRequest>,
 ) -> Result<Json<UserResponse>, StatusCode> {
     // Only platform admins can update users
     if user.role != "platform_admin" {

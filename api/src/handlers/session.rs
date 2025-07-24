@@ -1,21 +1,27 @@
 // src/handlers/session.rs
 use crate::{AppState, DomainContext, AnalyticsContext};
 use crate::services::session_tracking::SessionTracker;
+use crate::validation::extractors::ValidatedJson;
 use axum::{
     Extension,
-    extract::{State, Json as AxumJson},
+    extract::State,
     http::StatusCode,
     response::Json,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
+use validator::Validate;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Validate)]
 pub struct CreateSessionRequest {
+    #[validate(length(min = 1, max = 500, message = "User agent must be between 1 and 500 characters"))]
     pub user_agent: String,
+    #[validate(url(message = "Invalid referrer URL"))]
     pub referrer: Option<String>,
+    #[validate(length(max = 50, message = "Screen resolution too long"))]
     pub screen_resolution: Option<String>,
+    #[validate(length(max = 10, message = "Language code too long"))]
     pub language: Option<String>,
 }
 
@@ -24,9 +30,11 @@ pub struct CreateSessionResponse {
     pub session_id: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Validate)]
 pub struct UpdateSessionRequest {
+    #[validate(length(min = 1, message = "Session ID is required"))]
     pub session_id: String,
+    #[validate(length(min = 1, message = "Last activity timestamp is required"))]
     pub last_activity: String,
 }
 
@@ -35,9 +43,11 @@ pub struct UpdateSessionResponse {
     pub success: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Validate)]
 pub struct EndSessionRequest {
+    #[validate(length(min = 1, message = "Session ID is required"))]
     pub session_id: String,
+    #[validate(length(min = 1, message = "End timestamp is required"))]
     pub ended_at: String,
 }
 
@@ -51,7 +61,7 @@ pub async fn create_session(
     Extension(domain): Extension<DomainContext>,
     Extension(analytics): Extension<AnalyticsContext>,
     State(state): State<Arc<AppState>>,
-    AxumJson(payload): AxumJson<CreateSessionRequest>,
+    ValidatedJson(payload): ValidatedJson<CreateSessionRequest>,
 ) -> Result<Json<CreateSessionResponse>, StatusCode> {
     let session_id = Uuid::new_v4().to_string();
     
@@ -74,7 +84,7 @@ pub async fn update_session(
     Extension(domain): Extension<DomainContext>,
     Extension(analytics): Extension<AnalyticsContext>,
     State(state): State<Arc<AppState>>,
-    AxumJson(payload): AxumJson<UpdateSessionRequest>,
+    ValidatedJson(payload): ValidatedJson<UpdateSessionRequest>,
 ) -> Result<Json<UpdateSessionResponse>, StatusCode> {
     // Create session info for the update
     let session_info = crate::services::session_tracking::SessionInfo {
@@ -95,7 +105,7 @@ pub async fn end_session(
     Extension(_domain): Extension<DomainContext>,
     Extension(_analytics): Extension<AnalyticsContext>,
     State(state): State<Arc<AppState>>,
-    AxumJson(payload): AxumJson<EndSessionRequest>,
+    ValidatedJson(payload): ValidatedJson<EndSessionRequest>,
 ) -> Result<Json<EndSessionResponse>, StatusCode> {
     match SessionTracker::end_session(&state.db, &payload.session_id).await {
         Ok(_) => Ok(Json(EndSessionResponse { success: true })),

@@ -15,6 +15,7 @@ pub mod middleware;
 pub mod services;
 pub mod telemetry;
 pub mod utils;
+pub mod validation;
 
 #[cfg(test)]
 pub mod test_utils;

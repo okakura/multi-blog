@@ -1,4 +1,5 @@
 use crate::utils::{ErrorSpan, PerformanceSpan};
+use crate::validation::extractors::ValidatedJson;
 use crate::{AppState, DomainPermission};
 use axum::{
     Router,
@@ -12,6 +13,7 @@ use chrono::{Duration, Utc};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 use std::{env, sync::Arc};
+use validator::Validate;
 
 // JWT Claims
 #[derive(Debug, Serialize, Deserialize)]
@@ -28,25 +30,12 @@ fn get_jwt_secret() -> String {
     env::var("JWT_SECRET").expect("JWT_SECRET must be set in environment")
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Validate)]
 pub struct LoginRequest {
+    #[validate(email(message = "Invalid email format"), length(min = 1, message = "Email is required"))]
     pub email: String,
+    #[validate(length(min = 6, message = "Password must be at least 6 characters"))]
     pub password: String,
-}
-
-impl LoginRequest {
-    fn validate(&self) -> Result<(), String> {
-        if self.email.trim().is_empty() {
-            return Err("Email is required".to_string());
-        }
-        if !self.email.contains('@') {
-            return Err("Invalid email format".to_string());
-        }
-        if self.password.len() < 6 {
-            return Err("Password must be at least 6 characters".to_string());
-        }
-        Ok(())
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -91,16 +80,10 @@ impl ErrorResponse {
 /// Login endpoint
 pub async fn login(
     State(state): State<Arc<AppState>>,
-    Json(payload): Json<LoginRequest>,
+    ValidatedJson(payload): ValidatedJson<LoginRequest>,
 ) -> Result<Json<LoginResponse>, (StatusCode, Json<ErrorResponse>)> {
     PerformanceSpan::monitor("user_login", async {
-        // Validate input
-        if let Err(validation_error) = payload.validate() {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::new("validation_error", &validation_error)),
-            ));
-        }
+        // Input is already validated by ValidatedJson extractor
         // Look up user in database
         let user = sqlx::query!(
             "SELECT id, email, name, password_hash, role FROM users WHERE email = $1",

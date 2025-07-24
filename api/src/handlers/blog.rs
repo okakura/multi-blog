@@ -198,7 +198,7 @@ async fn list_posts(
 
     if let Some(_category) = &params.category {
         bind_count += 1;
-        query.push_str(&format!(" AND category = ${}", bind_count));
+        query.push_str(&format!(" AND category = ${bind_count}"));
     }
 
     query.push_str(&format!(
@@ -277,7 +277,7 @@ async fn get_post(
     Path(slug): Path<String>,
 ) -> Result<Json<PostResponse>, StatusCode> {
     // Add request context to span
-    BusinessSpan::add_request_context("", "GET", &format!("/posts/{}", slug));
+    BusinessSpan::add_request_context("", "GET", &format!("/posts/{slug}"));
 
     info!(
         "Looking for post with slug: {} in domain: {}",
@@ -322,7 +322,7 @@ async fn get_post(
 
     // Track page view with analytics tracing
     BusinessSpan::execute("log_page_view", async {
-        log_page_view(&state, &domain, &analytics, &format!("/posts/{}", slug)).await
+        log_page_view(&state, &domain, &analytics, &format!("/posts/{slug}")).await
     })
     .await
     .unwrap_or_else(|e| {

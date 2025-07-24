@@ -294,7 +294,7 @@ impl ErrorSpan {
     ) {
         let current_span = Span::current();
 
-        current_span.record("error.message", &format!("{}", error));
+        current_span.record("error.message", &format!("{error}"));
         current_span.record("error.stack_trace", &format!("{:?}", error));
 
         if let Some(ctx) = context {

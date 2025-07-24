@@ -2,8 +2,8 @@ use api::{
     AppState, analytics_middleware, auth_middleware, domain_middleware,
     handlers::{HandlerModule, admin::AdminModule, analytics, auth, blog::BlogModule, session},
     middleware::{
-        RateLimitConfig, create_rate_limiter, error_tracking_middleware, http_tracing_middleware,
-        performance_monitoring_middleware,
+        ClientIp, RateLimitConfig, create_rate_limiter, error_tracking_middleware,
+        http_tracing_middleware, performance_monitoring_middleware,
     },
     telemetry::{TelemetryConfig, init_telemetry},
 };
@@ -122,7 +122,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         port
     );
 
-    axum::serve(listener, app).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
     Ok(())
 }
 
@@ -172,7 +176,7 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                     let rate_limiter = auth_rate_limiter.clone();
                     async move {
                         rate_limiter
-                            .apply(ConnectInfo(addr), req, next)
+                            .apply(ClientIp(addr.ip()), req, next)
                             .await
                             .unwrap_or_else(|status| {
                                 axum::response::Response::builder()
@@ -197,7 +201,7 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                         let rate_limiter = read_only_rate_limiter.clone();
                         async move {
                             rate_limiter
-                                .apply(ConnectInfo(addr), req, next)
+                                .apply(ClientIp(addr.ip()), req, next)
                                 .await
                                 .unwrap_or_else(|status| {
                                     axum::response::Response::builder()
@@ -226,7 +230,7 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                         let rate_limiter = default_rate_limiter.clone();
                         async move {
                             rate_limiter
-                                .apply(ConnectInfo(addr), req, next)
+                                .apply(ClientIp(addr.ip()), req, next)
                                 .await
                                 .unwrap_or_else(|status| {
                                     axum::response::Response::builder()
@@ -255,7 +259,7 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                         let rate_limiter = admin_rate_limiter.clone();
                         async move {
                             rate_limiter
-                                .apply(ConnectInfo(addr), req, next)
+                                .apply(ClientIp(addr.ip()), req, next)
                                 .await
                                 .unwrap_or_else(|status| {
                                     axum::response::Response::builder()
