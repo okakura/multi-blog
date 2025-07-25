@@ -108,7 +108,7 @@ tracing::error!(
 #### Docker Compose Stack
 - **Jaeger**: Ports 16686 (UI), 4317/4318 (OTLP)
 - **Prometheus**: Port 9090 with custom scraping config
-- **Grafana**: Port 3001 with pre-configured dashboards
+- **Grafana**: Port 3000 with pre-configured dashboards
 
 #### API Performance Dashboard
 - **Dashboard ID**: 4
@@ -182,7 +182,7 @@ rate(auth_failures_total[5m])
 4. Export data for long-term analysis
 
 ### Dashboard Analysis
-1. Open Grafana: http://localhost:3001
+1. Open Grafana: http://localhost:3000
 2. View API Performance Dashboard
 3. Analyze trends and patterns
 4. Create custom panels for specific needs

@@ -15,10 +15,10 @@ make dev-observability  # Prometheus + Grafana + Jaeger
 
 ### Access Points
 - **API Server:** http://localhost:3000
-- **Frontend:** http://localhost:3001  
+- **Frontend:** http://localhost:5173  
 - **Jaeger UI:** http://localhost:16686
 - **Prometheus:** http://localhost:9090
-- **Grafana:** http://localhost:3001 (credentials: admin/admin)
+- **Grafana:** http://localhost:3000 (credentials: admin/admin)
 - **Metrics Endpoint:** http://localhost:9001/metrics
 
 ## 🔍 Tracing Utilities Reference

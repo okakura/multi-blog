@@ -372,7 +372,7 @@ curl http://localhost:9090/api/v1/targets
 
 ### Grafana Dashboards
 
-1. Open Grafana: `http://localhost:3001`
+1. Open Grafana: `http://localhost:3000`
 2. Navigate to "API Performance Dashboard"
 3. View real-time metrics and alerts
 

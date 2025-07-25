@@ -298,7 +298,7 @@ curl -X POST http://localhost:8000/analytics/search \
 - Verify time range in dashboard
 
 **Services not starting:**
-- Check port conflicts: `lsof -i :16686,9090,3001`
+- Check port conflicts: `lsof -i :16686,9090,3000`
 - Review Docker logs: `docker-compose logs jaeger prometheus grafana`
 - Ensure Docker has enough memory allocated
 
@@ -316,7 +316,7 @@ docker-compose logs -f grafana
 # Test connectivity
 curl -v http://localhost:16686/api/services
 curl -v http://localhost:9090/-/healthy
-curl -v http://localhost:3001/api/health
+curl -v http://localhost:3000/api/health
 
 # Check metrics generation
 curl http://localhost:9001/metrics | grep http_requests_total
