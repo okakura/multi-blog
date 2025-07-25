@@ -1,21 +1,22 @@
 # Test Environment Setup
 
-This document explains how to run tests for the multi-blog API.
+This document explains how to run tests for the multi-blog API in the Nx monorepo.
 
 ## Prerequisites
 
 1. **Docker and Docker Compose** - for test database
-2. **Rust** - latest stable version
-3. **PostgreSQL** - running via Docker
+2. **Rust** - latest stable version  
+3. **Node.js 18+ and pnpm** - for Nx commands
 
 ## Test Database Setup
 
-### Option 1: Use Existing Database
+### Using Nx Services (Recommended)
 
-The tests can use the same database as development. Make sure your services are running:
+The tests can use the database managed by Nx services:
 
 ```bash
-docker-compose up -d
+# From monorepo root
+nx run services:up
 ```
 
 ### Option 2: Separate Test Database
@@ -34,15 +35,25 @@ docker run --name multi-blog-test-db \
 # Set test database URL
 export TEST_DATABASE_URL=postgresql://blog_user:blog_password@localhost:5433/multi_blog_test
 
-# Run migrations on test database
-sqlx migrate run --database-url $TEST_DATABASE_URL
+# Run migrations on test database (from monorepo root)
+nx run api:migrate
 ```
 
 ## Running Tests
 
-### All Tests
+### Using Nx (Recommended)
 
 ```bash
+# From monorepo root
+nx run api:test              # Run all API tests
+nx run api:test-watch        # Run tests in watch mode
+nx run-many --target=test    # Run tests across all projects
+```
+
+### Direct Cargo Commands
+
+```bash
+# From apps/api directory
 cargo test
 ```
 
@@ -228,8 +239,8 @@ brew install wrk  # macOS
 sudo apt-get install wrk  # Ubuntu
 
 # Test blog endpoints
-wrk -t12 -c400 -d30s http://localhost:3000/
+wrk -t12 -c400 -d30s http://localhost:8000/
 
 # Test with specific domain
-wrk -t12 -c400 -d30s -H "Host: testblog.com" http://localhost:3000/posts
+wrk -t12 -c400 -d30s -H "Host: testblog.com" http://localhost:8000/posts
 ```

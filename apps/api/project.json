@@ -18,8 +18,157 @@
         "production": {
           "release": true
         }
+      },
+      "metadata": {
+        "description": "Build Rust API"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cargo run --bin api",
+        "cwd": "apps/api"
+      },
+      "metadata": {
+        "description": "Start API development server"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cargo test",
+        "cwd": "apps/api"
+      },
+      "metadata": {
+        "description": "Run Rust tests"
+      }
+    },
+    "test-watch": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cargo watch -x test",
+        "cwd": "apps/api"
+      },
+      "metadata": {
+        "description": "Run tests in watch mode"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cargo clippy -- -D warnings",
+        "cwd": "apps/api"
+      },
+      "metadata": {
+        "description": "Lint Rust code with Clippy"
+      }
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cargo fmt",
+        "cwd": "apps/api"
+      },
+      "metadata": {
+        "description": "Format Rust code"
+      }
+    },
+    "format-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cargo fmt -- --check",
+        "cwd": "apps/api"
+      },
+      "metadata": {
+        "description": "Check Rust code formatting"
+      }
+    },
+    "check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cargo check",
+        "cwd": "apps/api"
+      },
+      "metadata": {
+        "description": "Check Rust code for errors"
+      }
+    },
+    "clean": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cargo clean",
+        "cwd": "apps/api"
+      },
+      "metadata": {
+        "description": "Clean build artifacts"
+      }
+    },
+    "migrate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "sqlx migrate run --source ../../services/database/migrations",
+        "cwd": "apps/api"
+      },
+      "metadata": {
+        "description": "Run database migrations"
+      }
+    },
+    "seed": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker exec -i multi-blog-database-postgres-1 psql -U blog_user -d multi_blog_dev < ../../services/database/seed.sql",
+        "cwd": "apps/api"
+      },
+      "metadata": {
+        "description": "Seed database with sample data"
+      }
+    },
+    "db-reset": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "sqlx database drop --database-url postgresql://multi_blog_user:multi_blog_password@localhost:5432/multi_blog_db -y",
+          "sqlx database create --database-url postgresql://multi_blog_user:multi_blog_password@localhost:5432/multi_blog_db",
+          "sqlx migrate run --source ../../services/database/migrations",
+          "psql postgresql://multi_blog_user:multi_blog_password@localhost:5432/multi_blog_db -f ../../services/database/seed.sql"
+        ],
+        "cwd": "apps/api",
+        "parallel": false
+      },
+      "metadata": {
+        "description": "Reset database: drop, create, migrate, and seed"
+      }
+    },
+    "migrate-revert": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "sqlx migrate revert",
+        "cwd": "apps/api"
+      },
+      "metadata": {
+        "description": "Revert last database migration"
+      }
+    },
+    "generate-hashes": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cargo run --bin generate_hashes",
+        "cwd": "apps/api"
+      },
+      "metadata": {
+        "description": "Generate password hashes for development"
+      }
+    },
+    "docs": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cargo doc --open",
+        "cwd": "apps/api"
+      },
+      "metadata": {
+        "description": "Generate and open API documentation"
       }
     }
   },
-  "tags": []
+  "tags": ["scope:api", "type:app", "platform:rust"]
 }

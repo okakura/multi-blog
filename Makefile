@@ -114,7 +114,7 @@ fix: ## Fix all auto-fixable issues
 # Database
 db-up: ## Start database containers
 	@echo "🗄️  Starting database containers..."
-	cd api && docker-compose up -d postgres pgadmin redis
+	cd services && docker compose -f database/compose.yaml up -d
 	@echo "✅ Database containers started!"
 	@echo "🗄️  PostgreSQL: localhost:5432"
 	@echo "📊 PgAdmin: http://localhost:8080"
@@ -122,55 +122,83 @@ db-up: ## Start database containers
 
 db-down: ## Stop database containers
 	@echo "🛑 Stopping database containers..."
-	cd api && docker-compose down
+	cd services && docker compose -f database/compose.yaml down
 	@echo "✅ Database containers stopped!"
 
 db-logs: ## Show database container logs
-	cd api && docker-compose logs -f postgres
+	cd services && docker compose -f database/compose.yaml logs -f postgres
 
 db-reset: ## Reset database (WARNING: destroys all data)
 	@echo "⚠️  This will destroy all database data!"
 	@read -p "Are you sure? (y/N): " confirm && [ "$$confirm" = "y" ] || exit 1
-	cd api && docker-compose down -v
-	cd api && docker-compose up -d postgres pgadmin redis
+	cd services && docker compose -f database/compose.yaml down -v
+	cd services && docker compose -f database/compose.yaml up -d
 	@echo "🔄 Database reset complete!"
+
+# Monitoring
+monitoring-up: ## Start monitoring containers (Prometheus, Grafana, Jaeger)
+	@echo "📊 Starting monitoring containers..."
+	cd services && docker compose -f monitoring/compose.yaml up -d
+	@echo "✅ Monitoring containers started!"
+	@echo "📈 Prometheus: http://localhost:9090"
+	@echo "📊 Grafana: http://localhost:3000"
+	@echo "🔍 Jaeger: http://localhost:16686"
+
+monitoring-down: ## Stop monitoring containers
+	@echo "🛑 Stopping monitoring containers..."
+	cd services && docker compose -f monitoring/compose.yaml down
+	@echo "✅ Monitoring containers stopped!"
+
+monitoring-logs: ## Show monitoring container logs
+	cd services && docker compose -f monitoring/compose.yaml logs -f
+
+# All services
+services-up: ## Start all services (database + monitoring)
+	@echo "� Starting all services..."
+	cd services && docker compose -f main.yaml up -d
+	@echo "✅ All services started!"
+	@echo "🗄️  PostgreSQL: localhost:5432"
+	@echo "📊 PgAdmin: http://localhost:8080"
+	@echo "🔴 Redis: localhost:6379"
+	@echo "📈 Prometheus: http://localhost:9090"
+	@echo "📊 Grafana: http://localhost:3000"
+	@echo "🔍 Jaeger: http://localhost:16686"
+
+services-down: ## Stop all services
+	@echo "🛑 Stopping all services..."
+	cd services && docker compose -f main.yaml down
+	@echo "✅ All services stopped!"
+
+services-logs: ## Show logs from all services
+	@echo "📋 Showing service logs..."
+	cd services && docker compose -f main.yaml logs -f
+
+services-status: ## Show status of all services
+	@echo "📊 Service status:"
+	cd services && docker compose -f main.yaml ps
 
 # Database migrations
 db-migrate: ## Run database migrations
 	@echo "🔄 Running database migrations..."
-	cd api && cargo run --bin api -- migrate
+	cd apps/api && cargo run --bin api -- migrate
 	@echo "✅ Migrations complete!"
 
-# Docker
-docker-up: db-up ## Alias for db-up
+# Docker (legacy aliases)
+docker-up: services-up ## Alias for services-up
 
-docker-down: db-down ## Alias for db-down
+docker-down: services-down ## Alias for services-down
 
-docker-start: ## Start all Docker services (database + cache)
-	@echo "🐳 Starting all Docker services..."
-	cd api && docker-compose up -d
-	@echo "✅ All Docker services started!"
-	@echo "🗄️  PostgreSQL: localhost:5432"
-	@echo "📊 PgAdmin: http://localhost:8080"
-	@echo "🔴 Redis: localhost:6379"
+docker-start: services-up ## Alias for services-up
+docker-stop: services-down ## Alias for services-down
 
-docker-stop: ## Stop all Docker services
-	@echo "🛑 Stopping all Docker services..."
-	cd api && docker-compose down
-	@echo "✅ All Docker services stopped!"
+docker-restart: ## Restart all services
+	@echo "🔄 Restarting all services..."
+	cd services && docker compose -f main.yaml restart
+	@echo "✅ All services restarted!"
 
-docker-restart: ## Restart all Docker services
-	@echo "🔄 Restarting all Docker services..."
-	cd api && docker-compose restart
-	@echo "✅ All Docker services restarted!"
+docker-logs: services-logs ## Alias for services-logs
 
-docker-logs: ## Show logs from all Docker services
-	@echo "📋 Showing Docker service logs..."
-	cd api && docker-compose logs -f
-
-docker-status: ## Show status of Docker services
-	@echo "📊 Docker service status:"
-	cd api && docker-compose ps
+docker-status: services-status ## Alias for services-status
 
 # Cleanup
 clean: ## Clean build artifacts
@@ -189,11 +217,11 @@ clean-all: clean ## Clean everything including dependencies
 # Development utilities
 generate-hashes: ## Generate password hashes for development
 	@echo "🔐 Generating password hashes..."
-	cd api && cargo run --bin generate_hashes
+	cd apps/api && cargo run --bin generate_hashes
 
 logs: ## Show application logs
 	@echo "📋 Showing application logs..."
-	cd api && cargo run --bin api 2>&1 | grep -E "(INFO|WARN|ERROR|DEBUG)"
+	cd apps/api && cargo run --bin api 2>&1 | grep -E "(INFO|WARN|ERROR|DEBUG)"
 
 # Quick commands
 dev: dev-both ## Alias for dev-both

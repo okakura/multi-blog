@@ -7,37 +7,55 @@ Thank you for your interest in contributing! This document provides guidelines f
 1. **Fork and clone the repository**
 2. **Set up development environment**:
    ```bash
-   make setup
+   pnpm install
+   nx run services:up
+   nx run api:migrate
    ```
 3. **Start development servers**:
    ```bash
-   make dev-both
+   pnpm dev-all
    ```
 
 ## �️ Development Workflow
 
 ### Prerequisites
 
-- Node.js 18+ and pnpm
+- Node.js 18+ and pnpm 8+
 - Rust 1.70+
-- PostgreSQL (via Docker)
+- Docker and Docker Compose
 - Git
 
 ### Initial Setup
 
 ```bash
-# Check prerequisites
-make check-deps
+# Install all dependencies (frontend + backend)
+pnpm install
 
-# Complete setup (installs deps, starts database, etc.)
-make setup
+# Start database and monitoring services
+nx run services:up
+
+# Run database migrations and seed data
+nx run api:migrate
+nx run services:seed
 
 # Verify everything works
-make health
+nx run-many --target=test
 ```
 
 ### Daily Development
 
+**Nx Commands (Recommended):**
+```bash
+# Start everything at once
+pnpm dev-all
+
+# Or start individually with Nx
+nx run services:up        # Database & monitoring
+nx run api:serve         # Backend API (port 8000)
+nx run multi-blog:serve  # Frontend (port 5173)
+```
+
+**Legacy Makefile Commands (still supported):**
 ```bash
 # Start both servers
 make dev-both
@@ -49,6 +67,21 @@ make dev-backend   # Backend only (port 8000)
 
 ### Before Committing
 
+**Nx Commands (Recommended):**
+```bash
+# Run all quality checks across projects
+nx run-many --target=lint
+nx run-many --target=test
+nx run-many --target=build
+
+# Individual project checks
+nx run multi-blog:lint        # Frontend linting
+nx run api:lint              # Backend linting
+nx run multi-blog:test       # Frontend tests
+nx run api:test              # Backend tests
+```
+
+**Legacy Makefile Commands (still supported):**
 ```bash
 # Run all quality checks
 make check
@@ -66,6 +99,23 @@ make test
 
 We use **Biome** for linting and formatting:
 
+**Nx Commands:**
+```bash
+# Check for issues
+nx run multi-blog:lint
+
+# Auto-fix issues  
+nx run multi-blog:lint --fix
+
+# Format code
+nx run multi-blog:format
+
+# Run across all projects
+nx run-many --target=lint
+nx run-many --target=format
+```
+
+**Legacy Makefile Commands:**
 ```bash
 # Check for issues
 make lint
@@ -87,20 +137,72 @@ make format
 
 ### Backend (Rust)
 
+**Nx Commands:**
 ```bash
 # Check linting
-cd api && cargo clippy
+nx run api:lint
 
 # Format code
-cd api && cargo fmt
+nx run api:format
 
 # Run tests
-cd api && cargo test
+nx run api:test
+
+# Watch tests
+nx run api:test-watch
+```
+
+**Direct Cargo Commands:**
+```bash
+# Check linting
+cd apps/api && cargo clippy
+
+# Format code
+cd apps/api && cargo fmt
+
+# Run tests
+cd apps/api && cargo test
 ```
 
 ## 🏗️ Architecture Guidelines
 
-### Frontend Structure
+### Nx Monorepo Structure
+
+```
+multi-blog/
+├── apps/
+│   ├── multi-blog/           # React frontend application
+│   │   ├── src/
+│   │   │   ├── components/   # Reusable UI components
+│   │   │   ├── pages/        # Page-level components
+│   │   │   ├── hooks/        # Custom hooks
+│   │   │   ├── services/     # API calls and external services
+│   │   │   ├── contexts/     # React contexts
+│   │   │   ├── types/        # TypeScript type definitions
+│   │   │   └── utils/        # Helper functions
+│   │   └── project.json      # Nx project configuration
+│   │
+│   └── api/                  # Rust backend application
+│       ├── src/
+│       │   ├── handlers/     # Route handlers by feature
+│       │   ├── middleware/   # Custom middleware
+│       │   ├── services/     # Business logic
+│       │   ├── extractors/   # Request extractors
+│       │   ├── validation/   # Input validation
+│       │   └── utils/        # Utility functions
+│       └── project.json      # Nx project configuration
+│
+├── services/                 # Infrastructure services
+│   ├── database/            # PostgreSQL setup and migrations
+│   ├── monitoring/          # Grafana & Prometheus
+│   └── project.json         # Nx service management
+│
+├── libs/                    # Shared libraries (future)
+├── docs/                    # Documentation
+└── nx.json                  # Nx workspace configuration
+```
+
+### Frontend Structure (`apps/multi-blog/`)
 
 ```
 src/
@@ -115,11 +217,16 @@ src/
 └── utils/              # Helper functions
 ```
 
-### Backend Structure
+### Backend Structure (`apps/api/`)
 
 ```
-api/src/
+src/
 ├── handlers/           # Route handlers by feature
+├── middleware/         # Custom middleware
+├── services/           # Business logic
+├── extractors/         # Request extractors
+├── validation/         # Input validation
+├── utils/              # Utility functions
 ├── bin/               # Binary utilities and tools
 ├── lib.rs             # Shared middleware and utilities
 └── main.rs            # Application entry point

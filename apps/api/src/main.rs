@@ -1,6 +1,6 @@
 use api::{
     AppState, analytics_middleware, auth_middleware, domain_middleware,
-    handlers::{HandlerModule, admin::AdminModule, analytics, auth, blog::BlogModule, session},
+    handlers::{HandlerModule, admin::{self, AdminModule}, analytics, auth, blog::BlogModule, session},
     middleware::{
         ClientIp, RateLimitConfig, create_rate_limiter, error_tracking_middleware,
         http_tracing_middleware, performance_monitoring_middleware,
@@ -12,7 +12,7 @@ use axum::{Router, extract::ConnectInfo, middleware, response::Html};
 use std::{env, net::SocketAddr, sync::Arc};
 use tokio::net::TcpListener;
 use tower_http::cors::{AllowOrigin, CorsLayer};
-use tracing::info;
+use tracing::{info, error};
 use utoipa::OpenApi;
 
 async fn swagger_ui_handler() -> Html<&'static str> {
@@ -91,7 +91,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize telemetry
     let telemetry_config = TelemetryConfig::default();
     if let Err(e) = init_telemetry(telemetry_config) {
-        eprintln!("Failed to initialize telemetry: {e}");
+        error!("Failed to initialize telemetry: {e}");
         return Err(e);
     }
 
@@ -104,7 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!("Database connection established");
 
     // Run migrations
-    sqlx::migrate!("./migrations").run(&pool).await?;
+    sqlx::migrate!("../../services/database/migrations").run(&pool).await?;
     info!("Database migrations completed");
 
     let state = Arc::new(AppState { db: pool });
@@ -255,18 +255,61 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                     domain_middleware,
                 ))
                 .layer(middleware::from_fn(
-                    move |ConnectInfo(addr): ConnectInfo<SocketAddr>, req, next| {
-                        let rate_limiter = admin_rate_limiter.clone();
-                        async move {
-                            rate_limiter
-                                .apply(ClientIp(addr.ip()), req, next)
-                                .await
-                                .unwrap_or_else(|status| {
-                                    axum::response::Response::builder()
-                                        .status(status)
-                                        .body("Rate limit exceeded".into())
-                                        .unwrap()
-                                })
+                    {
+                        let admin_rate_limiter = admin_rate_limiter.clone();
+                        move |ConnectInfo(addr): ConnectInfo<SocketAddr>, req, next| {
+                            let rate_limiter = admin_rate_limiter.clone();
+                            async move {
+                                rate_limiter
+                                    .apply(ClientIp(addr.ip()), req, next)
+                                    .await
+                                    .unwrap_or_else(|status| {
+                                        axum::response::Response::builder()
+                                            .status(status)
+                                            .body("Rate limit exceeded".into())
+                                            .unwrap()
+                                    })
+                            }
+                        }
+                    },
+                )),
+        )
+        // Mount global admin routes (auth required, but no domain context needed)
+        .nest(
+            "/admin",
+            Router::new()
+                .route(
+                    "/profile/preferences",
+                    axum::routing::get(admin::get_user_preferences)
+                        .put(admin::update_user_preferences),
+                )
+                .route("/users", axum::routing::get(admin::list_users).post(admin::create_user))
+                .route(
+                    "/users/{id}",
+                    axum::routing::get(admin::get_user)
+                        .put(admin::update_user)
+                        .delete(admin::delete_user),
+                )
+                .layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    auth_middleware,
+                ))
+                .layer(middleware::from_fn(
+                    {
+                        let admin_rate_limiter = admin_rate_limiter.clone();
+                        move |ConnectInfo(addr): ConnectInfo<SocketAddr>, req, next| {
+                            let admin_rate_limiter = admin_rate_limiter.clone();
+                            async move {
+                                admin_rate_limiter
+                                    .apply(ClientIp(addr.ip()), req, next)
+                                    .await
+                                    .unwrap_or_else(|status| {
+                                        axum::response::Response::builder()
+                                            .status(status)
+                                            .body("Rate limit exceeded".into())
+                                            .unwrap()
+                                    })
+                            }
                         }
                     },
                 )),

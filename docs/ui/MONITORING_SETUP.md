@@ -2,17 +2,17 @@
 
 ## Complete Observability Stack Setup
 
-This guide walks you through setting up the complete enterprise-grade observability stack for the Multi-Blog platform.
+This guide walks you through setting up the complete enterprise-grade observability stack for the Multi-Blog platform in the Nx monorepo.
 
 ## 🎯 Quick Setup (Recommended)
 
-### One-Command Setup
+### One-Command Setup (Nx)
 ```bash
-# Start everything including observability stack
-make dev
+# From monorepo root - start everything including observability stack
+pnpm dev-all
 
 # This starts:
-# - PostgreSQL database
+# - PostgreSQL database (via services)
 # - Rust API server with tracing
 # - React frontend
 # - Jaeger (distributed tracing)
@@ -20,13 +20,29 @@ make dev
 # - Grafana (dashboards and visualization)
 ```
 
+### Alternative Setup Commands
+```bash
+# Start services first
+nx run services:up
+
+# Then start applications
+nx run api:serve
+nx run multi-blog:serve
+
+# Or use legacy Makefile
+make dev
+```
+
 ### Verify Setup
 ```bash
 # Check all services are running
+nx run services:status
+
+# Or check with legacy command
 make status
 
 # Test endpoints
-curl http://localhost:3000/health    # API health
+curl http://localhost:8000/health    # API health
 curl http://localhost:9001/metrics   # Metrics endpoint
 curl http://localhost:16686/api/services  # Jaeger services
 ```
@@ -45,9 +61,13 @@ curl http://localhost:16686/api/services  # Jaeger services
 - **Purpose**: Metrics collection, alerting, time-series data
 
 ### Grafana (Dashboards)
-- **UI**: http://localhost:3001
-- **Login**: admin / admin
-- **Purpose**: Visualization, dashboards, monitoring
+### Port Configuration
+- **Frontend**: http://localhost:5173 (React app)
+- **Backend API**: http://localhost:8000 (Rust API)
+- **Jaeger UI**: http://localhost:16686 (Tracing)
+- **Prometheus**: http://localhost:9090 (Metrics)
+- **Grafana**: http://localhost:3000 (Dashboards)
+- **PgAdmin**: http://localhost:8080 (Database admin)
 
 ### API Metrics Endpoint
 - **Endpoint**: http://localhost:9001/metrics
@@ -70,13 +90,13 @@ The setup automatically creates an **API Performance Dashboard** with:
 
 If you need to recreate the dashboard:
 
-1. Open Grafana at http://localhost:3001
+1. Open Grafana at http://localhost:3000
 2. Login with admin/admin
 3. Go to Dashboards > Import
 4. Use the API to create dashboard:
 
 ```bash
-curl -X POST http://admin:admin@localhost:3001/api/dashboards/db \
+curl -X POST http://admin:admin@localhost:3000/api/dashboards/db \
   -H "Content-Type: application/json" \
   -d @docs/grafana-dashboard.json
 ```
@@ -223,14 +243,14 @@ Configure Slack/email notifications in Grafana:
 ```bash
 # Generate some requests
 for i in {1..10}; do
-  curl http://localhost:3000/blog/posts
+  curl http://localhost:8000/blog/posts
   sleep 1
 done
 
 # Generate analytics events
-curl -X POST http://localhost:3000/analytics/search \
+curl -X POST http://localhost:8000/analytics/search \
   -H "Content-Type: application/json" \
-  -H "X-Domain: localhost:3001" \
+  -H "X-Domain: localhost:5173" \
   -d '{"session_id":"test-123","query":"rust","results_count":5}'
 ```
 
@@ -253,7 +273,7 @@ curl -X POST http://localhost:3000/analytics/search \
 
 ### Verify Dashboard
 
-1. Open Grafana: http://localhost:3001
+1. Open Grafana: http://localhost:3000
 2. Login: admin/admin
 3. Navigate to "API Performance Dashboard"
 4. You should see metrics from your test requests

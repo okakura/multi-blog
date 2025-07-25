@@ -9,8 +9,85 @@
       "options": {
         "command": "pnpm dev",
         "cwd": "apps/multi-blog"
+      },
+      "metadata": {
+        "description": "Start development server"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm build",
+        "cwd": "apps/multi-blog"
+      },
+      "outputs": [
+        "apps/multi-blog/dist"
+      ],
+      "metadata": {
+        "description": "Build for production"
+      }
+    },
+    "preview": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm preview",
+        "cwd": "apps/multi-blog"
+      },
+      "dependsOn": ["build"],
+      "metadata": {
+        "description": "Preview production build"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm test",
+        "cwd": "apps/multi-blog"
+      },
+      "metadata": {
+        "description": "Run tests"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm biome check src/",
+        "cwd": "apps/multi-blog"
+      },
+      "metadata": {
+        "description": "Lint code"
+      }
+    },
+    "lint-fix": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm biome check --fix src/",
+        "cwd": "apps/multi-blog"
+      },
+      "metadata": {
+        "description": "Lint and fix code"
+      }
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm biome format --write src/",
+        "cwd": "apps/multi-blog"
+      },
+      "metadata": {
+        "description": "Format code"
+      }
+    },
+    "type-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --noEmit",
+        "cwd": "apps/multi-blog"
+      },
+      "metadata": {
+        "description": "Type check TypeScript"
       }
     }
   },
-  "tags": ["scope:blog", "type:app", "platform:react"],
+  "tags": ["scope:blog", "type:app", "platform:react"]
 }

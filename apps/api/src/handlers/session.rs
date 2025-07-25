@@ -27,13 +27,12 @@ pub struct CreateSessionRequest {
 
 #[derive(Serialize)]
 pub struct CreateSessionResponse {
-    pub session_id: String,
+    pub session_id: Uuid,
 }
 
 #[derive(Deserialize, Validate)]
 pub struct UpdateSessionRequest {
-    #[validate(length(min = 1, message = "Session ID is required"))]
-    pub session_id: String,
+    pub session_id: Uuid,
     #[validate(length(min = 1, message = "Last activity timestamp is required"))]
     pub last_activity: String,
 }
@@ -45,8 +44,7 @@ pub struct UpdateSessionResponse {
 
 #[derive(Deserialize, Validate)]
 pub struct EndSessionRequest {
-    #[validate(length(min = 1, message = "Session ID is required"))]
-    pub session_id: String,
+    pub session_id: Uuid,
     #[validate(length(min = 1, message = "End timestamp is required"))]
     pub ended_at: String,
 }
@@ -63,7 +61,7 @@ pub async fn create_session(
     State(state): State<Arc<AppState>>,
     ValidatedJson(payload): ValidatedJson<CreateSessionRequest>,
 ) -> Result<Json<CreateSessionResponse>, StatusCode> {
-    let session_id = Uuid::new_v4().to_string();
+    let session_id = Uuid::new_v4();
     
     // Create session info from request and analytics context
     let session_info = crate::services::session_tracking::SessionInfo {
@@ -73,7 +71,7 @@ pub async fn create_session(
         domain_name: Some(domain.hostname.clone()),
     };
     
-    match SessionTracker::get_or_create_session(&state.db, &session_id, session_info).await {
+    match SessionTracker::get_or_create_session(&state.db, session_id, session_info).await {
         Ok(_) => Ok(Json(CreateSessionResponse { session_id })),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
@@ -94,7 +92,7 @@ pub async fn update_session(
         domain_name: Some(domain.hostname.clone()),
     };
     
-    match SessionTracker::get_or_create_session(&state.db, &payload.session_id, session_info).await {
+    match SessionTracker::get_or_create_session(&state.db, payload.session_id, session_info).await {
         Ok(_) => Ok(Json(UpdateSessionResponse { success: true })),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
@@ -107,7 +105,7 @@ pub async fn end_session(
     State(state): State<Arc<AppState>>,
     ValidatedJson(payload): ValidatedJson<EndSessionRequest>,
 ) -> Result<Json<EndSessionResponse>, StatusCode> {
-    match SessionTracker::end_session(&state.db, &payload.session_id).await {
+    match SessionTracker::end_session(&state.db, payload.session_id).await {
         Ok(_) => Ok(Json(EndSessionResponse { success: true })),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }

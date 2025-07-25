@@ -1,17 +1,20 @@
-# Multi-Blog Platform
+# Multi-Blog Platform - Frontend Application
 
-A full-stack multi-tenant blog platform built with React (frontend) and Rust/Axum (backend). Supports multiple domains with independent blog instances, user authentication, and **enterprise-grade observability**.
+> **Note**: This is the React frontend application within the Multi-Blog Platform Nx monorepo. For the complete setup and architecture overview, see the [main README](../../README.md).
+
+A modern React frontend for the multi-tenant blog platform, built with React 19, TypeScript, Tailwind CSS, and comprehensive enterprise observability features.
 
 ## 🚀 Features
 
-### Core Platform
-- **Multi-tenant Architecture**: Support for multiple blog domains
-- **Modern Frontend**: React 19 with TypeScript, Tailwind CSS, and Rsbuild
-- **Robust Backend**: Rust with Axum framework and PostgreSQL
-- **Authentication**: JWT-based auth with role-based access control
+### Core Frontend Features
+- **Multi-tenant Architecture**: Dynamic domain-based theming and content
+- **Modern React Stack**: React 19 with TypeScript, Tailwind CSS v4, and Rsbuild
+- **Rich Text Editor**: TipTap-based editor with image uploads and formatting
 - **Admin Dashboard**: Content management, user management, and analytics
-- **Domain Management**: Configure themes and settings per domain
-- **Rich Text Editor**: TipTap-based editor with image uploads
+- **Authentication**: JWT-based auth with role-based access control
+- **Responsive Design**: Mobile-first design with Tailwind CSS
+- **State Management**: SWR for data fetching and caching
+- **Routing**: React Router v7 with dynamic routes
 
 ### 🔍 Enterprise Observability Stack
 - **Distributed Tracing**: OpenTelemetry + Jaeger v2 with OTLP support
@@ -29,72 +32,33 @@ A full-stack multi-tenant blog platform built with React (frontend) and Rust/Axu
 - **Error Context Tracking** - Rich error reporting with span correlation
 - **Code Quality**: Biome for linting and formatting
 
-## 🏗️ Architecture
-
-### Frontend (`/`)
+## 🏗️ Frontend Technology Stack
 
 - **Framework**: React 19 with TypeScript
 - **Styling**: Tailwind CSS v4
-- **Build Tool**: Rsbuild
+- **Build Tool**: Rsbuild (fast Rust-based bundler)
 - **State Management**: SWR for data fetching and caching
 - **Routing**: React Router v7
 - **Icons**: Lucide React
 - **Editor**: TipTap rich text editor
 - **Code Quality**: Biome for linting and formatting
+- **Monorepo**: Nx for task orchestration and caching
 
-### Backend (`/api`)
+## 📦 Development within the Nx Monorepo
 
-- **Language**: Rust 1.70+
-- **Framework**: Axum web framework
-- **Database**: PostgreSQL with SQLx migrations
-- **Authentication**: JWT tokens with bcrypt password hashing
-- **Documentation**: OpenAPI/Swagger integration
-- **CORS**: Configurable origins for security
-- **Environment**: dotenv configuration
+This frontend application is part of the Multi-Blog Platform Nx monorepo. For the complete setup, use the commands from the monorepo root.
 
-### 🔍 Observability Infrastructure
-
-- **OpenTelemetry SDK v0.20**: Unified observability framework
-- **Jaeger v2**: Distributed tracing with OTLP support (Port: 16686)
-- **Prometheus v3.5.0 LTS**: Metrics collection and storage (Port: 9090)
-- **Grafana v12.1.0**: Visualization and dashboards (Port: 3001)
-- **Custom Tracing Utilities**: Enhanced span management and context tracking
-
-## 📦 Quick Start
-
-### Using Makefile (Recommended)
-
-1. **Check prerequisites**:
+### Quick Start (from monorepo root)
 
 ```bash
-make check-deps
-```
+# Install dependencies for entire monorepo
+pnpm install
 
-2. **Complete setup**:
+# Start the complete stack
+pnpm dev-all
 
-```bash
-make setup
-```
-
-3. **Start development servers**:
-
-```bash
-make dev        # Full stack with observability
-# OR
-make dev-both   # Just frontend + backend
-```
-
-4. **Access the application**:
-   - **Frontend**: http://localhost:3001
-   - **API**: http://localhost:3000
-   - **Jaeger UI**: http://localhost:16686
-   - **Grafana**: http://localhost:3001 (admin/admin)
-   - **Prometheus**: http://localhost:9090
-
-5. **View help for all commands**:
-
-```bash
-make help
+# Or start just the frontend
+nx run multi-blog:serve
 ```
 
 ## 🔍 Observability & Monitoring
@@ -103,7 +67,7 @@ The platform includes a comprehensive **enterprise-grade observability stack** p
 
 ### 📊 Monitoring Dashboard
 
-View real-time performance metrics in **Grafana** at http://localhost:3001:
+View real-time performance metrics in **Grafana** at http://localhost:3000:
 
 - **API Performance Dashboard** - Request rates, response times, error rates
 - **Database Performance** - Query timing, connection pools, slow queries
@@ -144,7 +108,7 @@ make status
 curl http://localhost:9001/metrics
 
 # Test tracing
-curl -H "X-Trace-Id: test-123" http://localhost:3000/blog/posts
+curl -H "X-Trace-Id: test-123" http://localhost:8000/blog/posts
 ```
 
 📚 **Detailed Documentation**: See [docs/OBSERVABILITY_ARCHITECTURE.md](docs/OBSERVABILITY_ARCHITECTURE.md) for complete observability setup and usage guide.
@@ -248,7 +212,7 @@ The backend uses JWT tokens for authentication. Configure in `api/.env`:
 
 ```env
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:8080
+CORS_ORIGINS=http://localhost:8000,http://localhost:5173,http://localhost:8080
 ```
 
 2. **Install frontend dependencies**:

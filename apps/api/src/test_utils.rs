@@ -16,7 +16,7 @@ pub async fn create_test_db() -> PgPool {
         .expect("Failed to connect to test database");
 
     // Run migrations
-    sqlx::migrate!("./migrations")
+    sqlx::migrate!("../../../services/database/migrations")
         .run(&pool)
         .await
         .expect("Failed to run migrations");

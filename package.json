@@ -9,7 +9,17 @@
     "libs/*"
   ],
   "scripts": {
-    "dev-blog": "nx run multi-blog:serve"
+    "dev-blog": "nx run multi-blog:serve",
+    "dev-api": "nx run api:serve",
+    "dev-services": "nx run services:up",
+    "dev-all": "concurrently \"nx run services:up\" \"nx run api:serve\" \"nx run multi-blog:serve\"",
+    "build": "nx run-many --target=build --projects=multi-blog,api",
+    "test": "nx run-many --target=test --projects=multi-blog,api",
+    "lint": "nx run-many --target=lint --projects=multi-blog,api",
+    "format": "nx run-many --target=format --projects=multi-blog,api",
+    "clean": "nx run-many --target=clean --projects=multi-blog,api,services",
+    "migrate": "nx run api:migrate",
+    "stop-services": "nx run services:down"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.1.2",

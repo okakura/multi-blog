@@ -9,7 +9,7 @@ use uuid::Uuid;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserSession {
     pub id: Uuid,
-    pub session_id: String,
+    pub session_id: Uuid,
     pub ip_address: Option<IpAddr>,
     pub user_agent: Option<String>,
     pub domain_name: Option<String>,
@@ -106,7 +106,7 @@ impl SessionTracker {
     /// Create or retrieve existing session
     pub async fn get_or_create_session(
         db: &PgPool,
-        session_id: &str,
+        session_id: Uuid,
         session_info: SessionInfo,
     ) -> Result<Uuid, sqlx::Error> {
         // First try to find existing session
@@ -164,18 +164,9 @@ impl SessionTracker {
     }
 
     /// End a session (called when user leaves or session expires)
-    pub async fn end_session(db: &PgPool, session_id: &str) -> Result<(), sqlx::Error> {
-        // First get the session UUID
-        let session_uuid = sqlx::query!(
-            "SELECT id FROM user_sessions WHERE session_id = $1",
-            session_id
-        )
-        .fetch_one(db)
-        .await?
-        .id;
-
-        // Then call the end_session function
-        sqlx::query!("SELECT end_session($1)", session_uuid)
+    pub async fn end_session(db: &PgPool, session_id: Uuid) -> Result<(), sqlx::Error> {
+        // Call the database function to end the session
+        sqlx::query!("SELECT end_session($1)", session_id)
             .execute(db)
             .await?;
 

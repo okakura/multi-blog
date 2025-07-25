@@ -1,6 +1,8 @@
-# Multi-Blog API
+# Multi-Blog API - Backend Application
 
-A multi-tenant blog platform API built with Rust, Axum, and PostgreSQL.
+> **Note**: This is the Rust backend API within the Multi-Blog Platform Nx monorepo. For the complete setup and architecture overview, see the [main README](../../README.md).
+
+A multi-tenant blog platform API built with Rust, Axum, and PostgreSQL, designed for performance and observability.
 
 ## Features
 
@@ -52,28 +54,59 @@ A multi-tenant blog platform API built with Rust, Axum, and PostgreSQL.
 - `POST /analytics/search-click` - Track search result clicks and positions
 - `POST /analytics/content-metrics` - Track content engagement (reading time, scroll depth, completion)
 
+## Development within the Nx Monorepo
+
+This backend API is part of the Multi-Blog Platform Nx monorepo. For the complete setup, use the commands from the monorepo root.
+
+### Quick Start (from monorepo root)
+
+```bash
+# Install dependencies for entire monorepo
+pnpm install
+
+# Start database services
+nx run services:up
+
+# Run migrations
+nx run api:migrate
+
+# Start the API server
+nx run api:serve
+```
+
+### Direct Development Commands
+
+```bash
+# Run from the monorepo root
+nx run api:build           # Build the API
+nx run api:serve           # Start development server
+nx run api:test            # Run tests
+nx run api:test-watch      # Run tests in watch mode
+nx run api:lint            # Lint the code
+nx run api:format          # Format the code
+nx run api:migrate         # Run database migrations
+```
+
 ## Setup
 
-1. **Database Setup**:
+1. **Database Setup** (via Nx services):
 
    ```bash
-   # Install PostgreSQL and create database
-   createdb multi_blog_dev
-
-   # Set environment variable
-   export DATABASE_URL="postgresql://user:password@localhost/multi_blog_dev"
+   # From monorepo root - starts PostgreSQL via Docker
+   nx run services:up
    ```
 
 2. **Run Migrations**:
 
    ```bash
-   cargo install sqlx-cli
-   sqlx migrate run
+   # From monorepo root
+   nx run api:migrate
    ```
 
 3. **Start the Server**:
    ```bash
-   cargo run
+   # From monorepo root
+   nx run api:serve
    ```
 
 ## Environment Variables

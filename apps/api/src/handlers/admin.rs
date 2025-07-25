@@ -29,11 +29,6 @@ impl super::HandlerModule for AdminModule {
                 "/posts/{id}",
                 get(get_admin_post).put(update_post).delete(delete_post),
             )
-            .route("/users", get(list_users).post(create_user))
-            .route(
-                "/users/{id}",
-                get(get_user).put(update_user).delete(delete_user),
-            )
             .route("/analytics", get(get_analytics_summary))
             .route("/analytics/overview", get(get_admin_analytics_overview))
             .route("/analytics/traffic", get(get_admin_traffic_stats))
@@ -49,10 +44,7 @@ impl super::HandlerModule for AdminModule {
                 "/domains/{id}",
                 get(get_domain).put(update_domain).delete(delete_domain),
             )
-            .route(
-                "/profile/preferences",
-                get(get_user_preferences).put(update_user_preferences),
-            )
+            // Note: user preferences and user management moved to global admin routes
     }
 
     fn mount_path() -> &'static str {
@@ -97,12 +89,12 @@ struct AdminPostResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-struct UserPreferencesRequest {
+pub struct UserPreferencesRequest {
     preferences: serde_json::Value,
 }
 
 #[derive(Serialize)]
-struct UserPreferencesResponse {
+pub struct UserPreferencesResponse {
     preferences: serde_json::Value,
 }
 
@@ -1432,7 +1424,7 @@ async fn get_admin_referrer_stats(
 }
 
 // Get user preferences
-async fn get_user_preferences(
+pub async fn get_user_preferences(
     Extension(user): Extension<UserContext>,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<UserPreferencesResponse>, StatusCode> {
@@ -1447,7 +1439,7 @@ async fn get_user_preferences(
 }
 
 // Update user preferences
-async fn update_user_preferences(
+pub async fn update_user_preferences(
     Extension(user): Extension<UserContext>,
     State(state): State<Arc<AppState>>,
     Json(payload): Json<UserPreferencesRequest>,
@@ -1468,7 +1460,7 @@ async fn update_user_preferences(
 
 // User Management Structs
 #[derive(Serialize, Deserialize, Validate)]
-struct CreateUserRequest {
+pub struct CreateUserRequest {
     #[validate(email(message = "Invalid email format"))]
     #[validate(length(min = 1, message = "Email is required"))]
     email: String,
@@ -1489,7 +1481,7 @@ struct CreateUserRequest {
 }
 
 #[derive(Serialize, Deserialize)]
-struct UpdateUserRequest {
+pub struct UpdateUserRequest {
     email: Option<String>,
     name: Option<String>,
     password: Option<String>,
@@ -1519,7 +1511,7 @@ struct DomainPermissionInput {
 }
 
 #[derive(Serialize, sqlx::FromRow)]
-struct UserResponse {
+pub struct UserResponse {
     id: i32,
     email: String,
     name: String,
@@ -1537,7 +1529,7 @@ struct DomainPermissionResponse {
 }
 
 #[derive(Serialize)]
-struct UsersResponse {
+pub struct UsersResponse {
     users: Vec<UserResponse>,
     total: i64,
     page: i32,
@@ -1545,7 +1537,7 @@ struct UsersResponse {
 }
 
 #[derive(Deserialize)]
-struct UsersQuery {
+pub struct UsersQuery {
     page: Option<i32>,
     per_page: Option<i32>,
     role: Option<String>,
@@ -1555,7 +1547,7 @@ struct UsersQuery {
 // User Management Handlers
 
 // List users with pagination and filtering
-async fn list_users(
+pub async fn list_users(
     RequirePlatformAdmin { user: _ }: RequirePlatformAdmin,
     State(state): State<Arc<AppState>>,
     Query(params): Query<UsersQuery>,
@@ -1688,7 +1680,7 @@ async fn list_users(
 }
 
 // Create a new user
-async fn create_user(
+pub async fn create_user(
     Extension(user): Extension<UserContext>,
     State(state): State<Arc<AppState>>,
     ValidatedJson(payload): ValidatedJson<CreateUserRequest>,
@@ -1737,7 +1729,7 @@ async fn create_user(
 }
 
 // Get a single user
-async fn get_user(
+pub async fn get_user(
     Extension(user): Extension<UserContext>,
     State(state): State<Arc<AppState>>,
     Path(user_id): Path<i32>,
@@ -1751,7 +1743,7 @@ async fn get_user(
 }
 
 // Update a user
-async fn update_user(
+pub async fn update_user(
     Extension(user): Extension<UserContext>,
     State(state): State<Arc<AppState>>,
     Path(user_id): Path<i32>,
@@ -1844,7 +1836,7 @@ async fn update_user(
 }
 
 // Delete a user
-async fn delete_user(
+pub async fn delete_user(
     Extension(user): Extension<UserContext>,
     State(state): State<Arc<AppState>>,
     Path(user_id): Path<i32>,

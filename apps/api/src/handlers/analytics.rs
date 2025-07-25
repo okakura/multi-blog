@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::types::BigDecimal;
 use std::str::FromStr;
 use std::sync::Arc;
+use uuid::Uuid;
 
 pub struct AnalyticsModule;
 
@@ -259,7 +260,7 @@ pub struct UserBehaviorEvent {
     y: Option<f64>,
     scroll_depth: Option<f64>,
     timestamp: String,
-    session_id: String,
+    session_id: Uuid,
 }
 
 #[derive(Deserialize)]
@@ -268,7 +269,7 @@ pub struct SearchEvent {
     results_count: i64,
     no_results: Option<bool>,
     timestamp: String,
-    session_id: String,
+    session_id: Uuid,
 }
 
 #[derive(Deserialize)]
@@ -277,7 +278,7 @@ pub struct SearchClickEvent {
     clicked_result: String,
     position_clicked: Option<i32>,
     timestamp: String,
-    session_id: String,
+    session_id: Uuid,
 }
 
 #[derive(Deserialize)]
@@ -290,7 +291,7 @@ pub struct ContentMetricsEvent {
     time_on_page: i64,
     bounce: bool,
     engagement_events: i32,
-    session_id: String,
+    session_id: Uuid,
     timestamp: String,
 }
 

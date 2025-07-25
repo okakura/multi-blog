@@ -1,0 +1,4 @@
+include:
+ - database/compose.yaml
+ - monitoring/compose.yaml
+ 

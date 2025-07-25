@@ -4,6 +4,7 @@
   },
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "nxCloudId": "68826f430e4a9139ff7fce49",
+  "useDaemonProcess": false,
   "plugins": [
     "@monodon/rust"
   ]

@@ -1,0 +1,180 @@
+{
+  "name": "services",
+  "root": "services",
+  "projectType": "application",
+  "targets": {
+    "up": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker compose -f database/compose.yaml up -d",
+          "docker compose -f monitoring/compose.yaml up -d"
+        ],
+        "cwd": "services",
+        "parallel": false
+      },
+      "metadata": {
+        "description": "Start all services (database + monitoring)"
+      }
+    },
+    "down": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker compose -f database/compose.yaml down",
+          "docker compose -f monitoring/compose.yaml down"
+        ],
+        "cwd": "services",
+        "parallel": false
+      },
+      "metadata": {
+        "description": "Stop all services"
+      }
+    },
+    "logs": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker compose -f database/compose.yaml logs -f",
+          "docker compose -f monitoring/compose.yaml logs -f"
+        ],
+        "cwd": "services",
+        "parallel": true
+      },
+      "metadata": {
+        "description": "Show logs from all services"
+      }
+    },
+    "status": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "echo '🗄️  Database Services:'",
+          "docker compose -f database/compose.yaml ps",
+          "echo ''",
+          "echo '📊 Monitoring Services:'", 
+          "docker compose -f monitoring/compose.yaml ps"
+        ],
+        "cwd": "services",
+        "parallel": false
+      },
+      "metadata": {
+        "description": "Show status of all services"
+      }
+    },
+    "restart": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker compose -f database/compose.yaml restart",
+          "docker compose -f monitoring/compose.yaml restart"
+        ],
+        "cwd": "services",
+        "parallel": false
+      },
+      "metadata": {
+        "description": "Restart all services"
+      }
+    },
+    "db-up": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose -f database/compose.yaml up -d",
+        "cwd": "services"
+      },
+      "metadata": {
+        "description": "Start database services (PostgreSQL, Redis, PgAdmin)"
+      }
+    },
+    "db-down": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose -f database/compose.yaml down",
+        "cwd": "services"
+      },
+      "metadata": {
+        "description": "Stop database services"
+      }
+    },
+    "db-logs": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose -f database/compose.yaml logs -f postgres",
+        "cwd": "services"
+      },
+      "metadata": {
+        "description": "Show database logs"
+      }
+    },
+    "db-reset": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose -f database/compose.yaml down -v && docker compose -f database/compose.yaml up -d",
+        "cwd": "services"
+      },
+      "metadata": {
+        "description": "Reset database (WARNING: destroys all data!)"
+      }
+    },
+    "monitoring-up": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose -f monitoring/compose.yaml up -d",
+        "cwd": "services"
+      },
+      "metadata": {
+        "description": "Start monitoring services (Prometheus, Grafana, Jaeger)"
+      }
+    },
+    "monitoring-down": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose -f monitoring/compose.yaml down",
+        "cwd": "services"
+      },
+      "metadata": {
+        "description": "Stop monitoring services"
+      }
+    },
+    "monitoring-logs": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose -f monitoring/compose.yaml logs -f",
+        "cwd": "services"
+      },
+      "metadata": {
+        "description": "Show monitoring logs"
+      }
+    },
+    "clean": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker compose -f database/compose.yaml down -v --remove-orphans",
+          "docker compose -f monitoring/compose.yaml down -v --remove-orphans",
+          "docker system prune -f"
+        ],
+        "cwd": "services",
+        "parallel": false
+      },
+      "metadata": {
+        "description": "Clean up all containers and volumes"
+      }
+    },
+    "pull": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker compose -f database/compose.yaml pull",
+          "docker compose -f monitoring/compose.yaml pull"
+        ],
+        "cwd": "services",
+        "parallel": true
+      },
+      "metadata": {
+        "description": "Pull latest Docker images"
+      }
+    }
+  },
+  "tags": ["scope:infrastructure", "type:services"]
+}
