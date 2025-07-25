@@ -1,8 +1,7 @@
 import { Monitor, Moon, Sun } from 'lucide-react'
-import type React from 'react'
 import { usePreferences } from '@/data/hooks/useUserPreferences'
 
-const ThemeToggle: React.FC = () => {
+const ThemeToggle = () => {
   const { preferences, updatePreference } = usePreferences()
   const theme = preferences.appearance.theme
 
@@ -21,6 +20,7 @@ const ThemeToggle: React.FC = () => {
       <div className="flex items-center bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-1">
         {themes.map(({ id, label, icon: Icon }) => (
           <button
+            type="button"
             key={id}
             onClick={() => setTheme(id)}
             className={`flex items-center space-x-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${theme === id

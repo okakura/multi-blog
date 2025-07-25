@@ -24,20 +24,20 @@ import UserProfile from './pages/admin/UserProfile'
 // Admin wrapper component
 const AdminApp = () => {
   return (
-    <ProtectedRoute requiredRole='admin'>
+    <ProtectedRoute requiredRole="admin">
       <ThemeProvider>
         <PreferencesWrapper>
           <AdminLayout>
             <Routes>
-              <Route path='/' element={<AdminDashboard />} />
-              <Route path='/posts' element={<AdminPosts />} />
-              <Route path='/posts/new' element={<AdminCreatePostPage />} />
-              <Route path='/posts/:id/edit' element={<AdminEditPost />} />
-              <Route path='/profile' element={<UserProfile />} />
-              <Route path='/analytics' element={<AdminAnalyticsDashboard />} />
-              <Route path='/domains' element={<AdminDomains />} />
-              <Route path='/users' element={<AdminUsers />} />
-              <Route path='/settings' element={<AdminSettings />} />
+              <Route path="/" element={<AdminDashboard />} />
+              <Route path="/posts" element={<AdminPosts />} />
+              <Route path="/posts/new" element={<AdminCreatePostPage />} />
+              <Route path="/posts/:id/edit" element={<AdminEditPost />} />
+              <Route path="/profile" element={<UserProfile />} />
+              <Route path="/analytics" element={<AdminAnalyticsDashboard />} />
+              <Route path="/domains" element={<AdminDomains />} />
+              <Route path="/users" element={<AdminUsers />} />
+              <Route path="/settings" element={<AdminSettings />} />
             </Routes>
           </AdminLayout>
         </PreferencesWrapper>
@@ -50,15 +50,15 @@ const AdminApp = () => {
 const PublicBlogApp = () => {
   // Initialize session tracking for analytics (only for public blog routes)
   useSessionTracking()
-  
+  console.log('PublicBlogApp initialized - session tracking active')
   return (
     <>
       <Routes>
-        <Route path='/' element={<Portfolio />} />
-        <Route path='/blog/:domain' element={<BlogDomainPage />} />
-        <Route path='/blog/:domain/post/:slug' element={<BlogPostPage />} />
+        <Route path="/" element={<Portfolio />} />
+        <Route path="/blog/:domain" element={<BlogDomainPage />} />
+        <Route path="/blog/:domain/post/:slug" element={<BlogPostPage />} />
       </Routes>
-      
+
       {/* Performance overlay for blog pages */}
       <PerformanceOverlay />
     </>
@@ -70,16 +70,16 @@ const BlogPlatform = () => {
   return (
     <AuthProvider>
       <Routes>
-        <Route path='/admin/*' element={<AdminApp />} />
-        <Route path='/*' element={<PublicBlogApp />} />
+        <Route path="/admin/*" element={<AdminApp />} />
+        <Route path="/*" element={<PublicBlogApp />} />
       </Routes>
 
       {/* Toast notifications */}
       <Toaster
-        position='top-right'
+        position="top-right"
         reverseOrder={false}
         gutter={8}
-        containerClassName=''
+        containerClassName=""
         containerStyle={{}}
         toastOptions={{
           // Define default options

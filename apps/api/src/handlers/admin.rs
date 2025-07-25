@@ -1,4 +1,28 @@
-// src/handlers/admin.rs
+// ============================================================================
+// ADMIN PANEL HANDLERS
+// ============================================================================
+// Comprehensive admin panel functionality for multi-tenant blog management.
+// 
+// This module provides all administrative capabilities including:
+// - Content Management: Create, edit, delete posts across domains
+// - Domain Management: Configure domains, themes, and settings  
+// - User Management: Platform-level user administration
+// - Analytics: Administrative analytics and reporting
+// - Permissions: Role-based access control (platform_admin, domain_admin, etc.)
+//
+// AUTHENTICATION REQUIREMENTS:
+// - All routes require authentication via auth middleware
+// - Permission levels: platform_admin > domain_admin > domain_editor > domain_viewer
+// - Domain context automatically injected via extractors (except platform_admin routes)
+//
+// ROUTE STRUCTURE:
+// - /admin/posts/* - Content management (domain-scoped)
+// - /admin/domains/* - Domain management (platform-admin only)
+// - /admin/users/* - User management (platform-admin only)  
+// - /admin/analytics/* - Admin-level analytics (aggregated)
+// - /admin/profile/* - User preferences and profile settings
+// ============================================================================
+
 use crate::extractors::{
     RequireDomainAdmin, RequireDomainEditor, RequireDomainViewer, RequirePlatformAdmin,
 };
@@ -19,22 +43,47 @@ use sqlx::Row;
 use std::sync::Arc;
 use validator::Validate;
 
+// ============================================================================
+// ADMIN MODULE DEFINITION
+// ============================================================================
+// Central admin module that consolidates all administrative functionality.
+// Routes are organized by feature area for maintainability.
+
 pub struct AdminModule;
 
 impl super::HandlerModule for AdminModule {
+    /// Configure all admin routes with their HTTP methods
+    /// Routes are grouped by functionality for better organization
     fn routes() -> Router<Arc<AppState>> {
         Router::new()
+            // ===========================================
+            // CONTENT MANAGEMENT ROUTES
+            // ===========================================
+            // Post management: CRUD operations for blog posts
+            // Permissions: domain_viewer (read), domain_editor (write), domain_admin (delete)
             .route("/posts", get(list_admin_posts).post(create_post))
             .route(
                 "/posts/{id}",
                 get(get_admin_post).put(update_post).delete(delete_post),
             )
+            
+            // ===========================================
+            // ANALYTICS & REPORTING ROUTES  
+            // ===========================================
+            // Admin-level analytics (aggregated across domains for platform admins)
+            // Domain-scoped analytics for domain users
             .route("/analytics", get(get_analytics_summary))
             .route("/analytics/overview", get(get_admin_analytics_overview))
             .route("/analytics/traffic", get(get_admin_traffic_stats))
             .route("/analytics/posts", get(get_admin_post_analytics))
             .route("/analytics/search-terms", get(get_admin_search_analytics))
             .route("/analytics/referrers", get(get_admin_referrer_stats))
+            
+            // ===========================================
+            // DOMAIN CONFIGURATION ROUTES
+            // ===========================================
+            // Domain settings: theme config, categories, SEO settings
+            // Domain management: create, update, delete domains (platform_admin only)
             .route(
                 "/domain/settings",
                 get(get_domain_settings).put(update_domain_settings),
@@ -44,21 +93,50 @@ impl super::HandlerModule for AdminModule {
                 "/domains/{id}",
                 get(get_domain).put(update_domain).delete(delete_domain),
             )
-            // Note: user preferences and user management moved to global admin routes
+            
+            // ===========================================
+            // USER MANAGEMENT ROUTES
+            // ===========================================
+            // Platform-level user administration (platform_admin only)
+            // Includes user CRUD, permission management, role assignment
+            .route("/users", get(list_users).post(create_user))
+            .route(
+                "/users/{id}",
+                get(get_user).put(update_user).delete(delete_user),
+            )
+            
+            // ===========================================
+            // USER PROFILE & PREFERENCES ROUTES
+            // ===========================================
+            // User-specific settings and preferences
+            // Available to all authenticated users for their own profile
+            .route(
+                "/profile/preferences",
+                get(get_user_preferences).put(update_user_preferences),
+            )
     }
 
+    /// Mount path for all admin routes
+    /// All routes defined above will be prefixed with /admin
     fn mount_path() -> &'static str {
         "/admin"
     }
 }
 
+// ============================================================================
+// CONTENT MANAGEMENT DATA STRUCTURES
+// ============================================================================
+// Request/response types for blog post management operations
+
+/// Request structure for creating new blog posts
+/// Used by both create and update operations
 #[derive(Serialize, Deserialize)]
 struct CreatePostRequest {
-    title: String,
-    content: String,
-    category: String,
-    slug: Option<String>,
-    status: Option<String>, // draft, published
+    title: String,              // Post title (required)
+    content: String,            // Post content/body (required)  
+    category: String,           // Post category (required)
+    slug: Option<String>,       // URL slug (auto-generated if not provided)
+    status: Option<String>,     // Publication status: "draft" or "published" (defaults to "draft")
 }
 
 impl Validate for CreatePostRequest {
@@ -73,48 +151,78 @@ impl Validate for CreatePostRequest {
     }
 }
 
+/// Response structure for admin post operations
+/// Includes additional metadata not available in public post responses
 #[derive(Serialize, sqlx::FromRow)]
 struct AdminPostResponse {
-    id: i32,
-    title: String,
-    content: String,
-    author: Option<String>,
-    category: Option<String>,
-    slug: String,
-    status: Option<String>,
-    domain_id: i32,
-    domain_name: Option<String>,
-    created_at: Option<chrono::DateTime<chrono::Utc>>,
-    updated_at: Option<chrono::DateTime<chrono::Utc>>,
+    id: i32,                                            // Post ID
+    title: String,                                      // Post title
+    content: String,                                    // Full post content
+    author: Option<String>,                             // Post author name
+    category: Option<String>,                           // Post category
+    slug: String,                                       // URL-friendly slug
+    status: Option<String>,                             // Publication status
+    domain_id: i32,                                     // Associated domain ID
+    domain_name: Option<String>,                        // Domain name for context
+    created_at: Option<chrono::DateTime<chrono::Utc>>, // Creation timestamp
+    updated_at: Option<chrono::DateTime<chrono::Utc>>, // Last modification timestamp
 }
 
+// ============================================================================
+// USER PREFERENCES DATA STRUCTURES  
+// ============================================================================
+// Flexible user preference system with JSON storage
+
+/// Request structure for updating user preferences
+/// Supports arbitrary JSON data for extensibility
 #[derive(Serialize, Deserialize)]
 pub struct UserPreferencesRequest {
-    preferences: serde_json::Value,
+    preferences: serde_json::Value, // Flexible JSON preferences object
 }
 
+/// Response structure for user preferences
 #[derive(Serialize)]
 pub struct UserPreferencesResponse {
-    preferences: serde_json::Value,
+    preferences: serde_json::Value, // Current user preferences
 }
 
+// ============================================================================
+// CONTENT MANAGEMENT HANDLERS
+// ============================================================================
+// Handlers for blog post CRUD operations with proper permission checks
+
+/// Query parameters for listing admin posts
 #[derive(Deserialize)]
 struct AdminPostsQuery {
-    domain: Option<String>,
+    domain: Option<String>, // Optional domain filter: specific domain name or "all"
+    page: Option<i64>,      // Page number (1-based)
+    limit: Option<i64>,     // Number of posts per page
 }
+
+/// List posts with admin privileges
+/// Supports cross-domain listing for platform admins
+/// Domain users see only their domain's posts unless requesting "all" with proper permissions
 async fn list_admin_posts(
     RequireDomainViewer(auth): RequireDomainViewer,
     State(state): State<Arc<AppState>>,
     Query(query): Query<AdminPostsQuery>,
 ) -> Result<Json<Vec<AdminPostResponse>>, StatusCode> {
-    // If domain=all is requested, fetch from all domains the user has access to
+    // Set pagination defaults
+    let page = query.page.unwrap_or(1).max(1);
+    let limit = query.limit.unwrap_or(10).clamp(1, 100); // Max 100 posts per page
+    let offset = (page - 1) * limit;
+
+    // Handle cross-domain listing for users with proper permissions
     let posts = if query.domain.as_deref() == Some("all") {
+        // Helper struct for domain ID queries
         #[derive(sqlx::FromRow)]
         struct DomainId {
             id: i32,
         }
 
+        // Determine which domains the user can access
         let domain_ids: Vec<i32> = if auth.user.role == "platform_admin" {
+            // Platform admins can see all domains
             sqlx::query_as!(DomainId, "SELECT id as id FROM domains")
                 .fetch_all(&state.db)
                 .await
@@ -123,6 +231,7 @@ async fn list_admin_posts(
                 .map(|d| d.id)
                 .collect()
         } else {
+            // Domain users can only see domains they have permissions for
             sqlx::query_as!(
                 DomainId,
                 "SELECT domain_id as \"id!\" FROM user_domain_permissions WHERE user_id = $1",
@@ -131,15 +240,17 @@ async fn list_admin_posts(
             .fetch_all(&state.db)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-            .into_iter()
-            .map(|d| d.id)
-            .collect()
+                .into_iter()
+                .map(|d| d.id)
+                .collect()
         };
 
+        // Return empty list if user has no domain access
         if domain_ids.is_empty() {
             return Ok(Json(vec![]));
         }
 
+        // Build dynamic query for multiple domains with pagination
         let placeholders: Vec<String> = (1..=domain_ids.len()).map(|i| format!("${i}")).collect();
         let query_str = format!(
             r#"
@@ -149,20 +260,26 @@ async fn list_admin_posts(
             JOIN domains d ON p.domain_id = d.id
             WHERE p.domain_id IN ({})
             ORDER BY p.updated_at DESC
+            LIMIT ${} OFFSET ${}
             "#,
-            placeholders.join(", ")
+            placeholders.join(", "),
+            domain_ids.len() + 1,
+            domain_ids.len() + 2
         );
 
+        // Execute query with dynamic parameter binding
         let mut query_builder = sqlx::query_as::<_, AdminPostResponse>(&query_str);
         for domain_id in &domain_ids {
             query_builder = query_builder.bind(domain_id);
         }
         query_builder
+            .bind(limit)
+            .bind(offset)
             .fetch_all(&state.db)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     } else {
-        // Single domain: permission already checked by middleware/extractor
+        // Single domain query: user permissions already validated by extractor
         sqlx::query_as!(
             AdminPostResponse,
             r#"
@@ -172,8 +289,11 @@ async fn list_admin_posts(
             JOIN domains d ON p.domain_id = d.id
             WHERE p.domain_id = $1
             ORDER BY p.updated_at DESC
+            LIMIT $2 OFFSET $3
             "#,
-            auth.domain.id
+            auth.domain.id,
+            limit,
+            offset
         )
         .fetch_all(&state.db)
         .await
@@ -183,12 +303,16 @@ async fn list_admin_posts(
     Ok(Json(posts))
 }
 
+/// Create a new blog post
+/// Requires domain editor permissions or higher
+/// Auto-generates slug from title if not provided
 async fn create_post(
     RequireDomainEditor(auth): RequireDomainEditor,
     State(state): State<Arc<AppState>>,
     ValidatedJson(payload): ValidatedJson<CreatePostRequest>,
 ) -> Result<Json<AdminPostResponse>, StatusCode> {
     DatabaseSpan::execute("create_post", "posts", async {
+        // Generate URL-friendly slug if not provided
         let slug = payload.slug.unwrap_or_else(|| {
             payload
                 .title
@@ -199,8 +323,10 @@ async fn create_post(
                 .collect()
         });
 
+        // Default to draft status if not specified
         let status = payload.status.unwrap_or_else(|| "draft".to_string());
 
+        // Insert new post with author attribution
         let post = sqlx::query_as!(
             AdminPostResponse,
             r#"
@@ -209,10 +335,10 @@ async fn create_post(
             RETURNING id, title, content, author, category, slug, status, 
                       domain_id as "domain_id!", NULL as "domain_name?", created_at, updated_at
             "#,
-            auth.domain.id,
+            auth.domain.id,    // Post belongs to user's current domain
             payload.title,
             payload.content,
-            auth.user.name,
+            auth.user.name,    // Set author to current user's name
             payload.category,
             slug,
             status
@@ -226,6 +352,9 @@ async fn create_post(
     .await
 }
 
+/// Get a single post with admin details
+/// Requires domain viewer permissions or higher
+/// Returns 404 if post doesn't exist or user lacks access
 async fn get_admin_post(
     RequireDomainViewer(auth): RequireDomainViewer,
     State(state): State<Arc<AppState>>,
@@ -241,7 +370,7 @@ async fn get_admin_post(
         WHERE p.id = $1 AND p.domain_id = $2
         "#,
         id,
-        auth.domain.id
+        auth.domain.id  // Ensures user can only access posts from their domain
     )
     .fetch_optional(&state.db)
     .await
@@ -319,11 +448,20 @@ async fn delete_post(
     }
 }
 
+// ============================================================================
+// ANALYTICS & REPORTING HANDLERS
+// ============================================================================
+// Admin-level analytics providing dashboard metrics and reporting.
+// Supports both domain-scoped and platform-wide analytics depending on user permissions.
+
+/// Get analytics summary for admin dashboard
+/// Returns comprehensive metrics for the last 30 days
+/// Domain users see their domain stats, platform admins see aggregated stats
 async fn get_analytics_summary(
     RequireDomainViewer(auth): RequireDomainViewer,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    // Get comprehensive analytics for the dashboard
+    // Get domain-specific analytics for the dashboard
     let summary = sqlx::query!(
         r#"
         SELECT 
@@ -487,24 +625,32 @@ async fn update_domain_settings(
     Ok(Json(comprehensive_settings))
 }
 
-// Domain Management Structs
+// ============================================================================
+// DOMAIN MANAGEMENT DATA STRUCTURES
+// ============================================================================
+// Platform-level domain administration (platform_admin only)
+// Handles multi-tenant domain configuration and lifecycle management
+
+/// Request structure for creating new domains
 #[derive(Serialize, Deserialize, Validate)]
 struct CreateDomainRequest {
     #[validate(custom(function = "validate_hostname", message = "Invalid hostname format"))]
-    hostname: String,
+    hostname: String,              // Domain hostname (e.g., "example.com") - must be unique
     #[validate(length(
         min = 1,
         max = 100,
         message = "Name must be between 1 and 100 characters"
     ))]
-    name: String,
-    theme_config: Option<serde_json::Value>,
-    categories: Option<Vec<String>>,
+    name: String,                  // Human-readable domain name
+    theme_config: Option<serde_json::Value>,  // Optional theme configuration JSON
+    categories: Option<Vec<String>>,          // Optional default categories for the domain
 }
 
+/// Response structure for domain operations
+/// Includes aggregated statistics for admin overview
 #[derive(Serialize, sqlx::FromRow)]
 struct DomainResponse {
-    id: i32,
+    id: i32,                       // Domain ID
     hostname: String,
     name: String,
     theme_config: serde_json::Value,
@@ -1458,25 +1604,32 @@ pub async fn update_user_preferences(
     }))
 }
 
-// User Management Structs
+// ============================================================================
+// USER MANAGEMENT DATA STRUCTURES
+// ============================================================================
+// Platform-level user administration (platform_admin only)
+// Comprehensive user lifecycle management with role-based permissions
+
+/// Request structure for creating new users
+/// Includes validation for security and data integrity
 #[derive(Serialize, Deserialize, Validate)]
 pub struct CreateUserRequest {
     #[validate(email(message = "Invalid email format"))]
     #[validate(length(min = 1, message = "Email is required"))]
-    email: String,
+    email: String,                 // User email (must be unique)
     #[validate(length(
         min = 1,
         max = 100,
         message = "Name must be between 1 and 100 characters"
     ))]
-    name: String,
+    name: String,                  // User display name
     #[validate(custom(
         function = "validate_password_strength",
         message = "Password does not meet security requirements"
     ))]
-    password: String,
+    password: String,              // Password (validated for strength)
     #[validate(custom(function = "validate_user_role", message = "Invalid user role"))]
-    role: String, // platform_admin or domain_user
+    role: String,                  // User role: "platform_admin" or "domain_user"
     domain_permissions: Option<Vec<DomainPermissionInput>>,
 }
 
@@ -1541,23 +1694,29 @@ pub struct UsersQuery {
     page: Option<i32>,
     per_page: Option<i32>,
     role: Option<String>,
-    search: Option<String>,
+    search: Option<String>,     // Search term for name/email filtering
 }
 
-// User Management Handlers
+// ============================================================================
+// USER MANAGEMENT HANDLERS
+// ============================================================================
+// Platform-level user administration with comprehensive CRUD operations
+// All operations require platform_admin role for security
 
-// List users with pagination and filtering
+/// List users with pagination and filtering
+/// Supports search, role filtering, and pagination for large user bases
 pub async fn list_users(
     RequirePlatformAdmin { user: _ }: RequirePlatformAdmin,
     State(state): State<Arc<AppState>>,
     Query(params): Query<UsersQuery>,
 ) -> Result<Json<UsersResponse>, StatusCode> {
     DatabaseSpan::execute("list_users", "users", async {
+        // Sanitize and validate pagination parameters
         let page = params.page.unwrap_or(1).max(1);
         let per_page = params.per_page.unwrap_or(20).clamp(1, 100) as i64;
         let offset = ((page - 1) * (per_page as i32)) as i64;
 
-        // Build the query with conditional WHERE clauses
+        // Build dynamic query with optional filtering
         let mut where_conditions = Vec::new();
         let mut bind_values: Vec<String> = Vec::new();
 

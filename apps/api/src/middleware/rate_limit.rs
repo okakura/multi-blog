@@ -89,7 +89,7 @@ impl RateLimitConfig {
     /// 10 requests per minute
     pub fn admin() -> Self {
         Self {
-            max_requests: NonZeroU32::new(10).unwrap(),
+            max_requests: NonZeroU32::new(60).unwrap(),
             window_seconds: 60,
         }
     }

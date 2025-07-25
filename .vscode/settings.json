@@ -100,7 +100,7 @@
   "editor.minimap.enabled": false,
   "workbench.statusBar.visible": true,
   "[typescriptreact]": {
-    "editor.defaultFormatter": "vscode.typescript-language-features"
+    "editor.defaultFormatter": "biomejs.biome"
   },
   "cSpell.words": [
     "chrono",

@@ -1,6 +1,6 @@
 use api::{
     AppState, analytics_middleware, auth_middleware, domain_middleware,
-    handlers::{HandlerModule, admin::{self, AdminModule}, analytics, auth, blog::BlogModule, session},
+    handlers::{HandlerModule, admin::AdminModule, analytics, auth, blog::BlogModule, session},
     middleware::{
         ClientIp, RateLimitConfig, create_rate_limiter, error_tracking_middleware,
         http_tracing_middleware, performance_monitoring_middleware,
@@ -132,17 +132,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
 pub fn create_app(state: Arc<AppState>) -> Router {
     // Create rate limiting middleware instances for different route groups
+    // Each rate limiter has different thresholds based on the sensitivity of the routes
     let default_rate_limiter = create_rate_limiter(RateLimitConfig::default());
     let auth_rate_limiter = create_rate_limiter(RateLimitConfig::auth());
     let admin_rate_limiter = create_rate_limiter(RateLimitConfig::admin());
     let read_only_rate_limiter = create_rate_limiter(RateLimitConfig::read_only());
 
     Router::new()
-        // Add a simple debug route without any middleware
+        // ===========================================
+        // SYSTEM & DIAGNOSTIC ROUTES (No authentication required)
+        // ===========================================
+        
+        // Simple debug endpoint for testing server connectivity
         .route(
             "/debug",
             axum::routing::get(|| async { "Debug endpoint working!" }),
         )
+        
+        // Health check endpoint - used by load balancers and monitoring
+        // Returns database status and server timestamp
         .route(
             "/health",
             axum::routing::get({
@@ -150,25 +158,34 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                 move || health_check(state)
             }),
         )
-        // Test route with just domain middleware
+        
+        // Test route for domain middleware functionality (development only)
         .route(
             "/test-domain",
             axum::routing::get(|| async { "Domain middleware working!" }).layer(
                 middleware::from_fn_with_state(state.clone(), domain_middleware),
             ),
         )
-        // Add OpenAPI JSON endpoint
+        
+        // OpenAPI specification endpoint for API documentation
         .route(
             "/api-docs/openapi.json",
             axum::routing::get(|| async {
                 axum::Json(api::handlers::blog::ApiBlogDocs::openapi())
             }),
         )
-        // Add Swagger UI route
+        
+        // Interactive Swagger UI for API documentation and testing
         .route("/swagger-ui", axum::routing::get(swagger_ui_handler))
-        // Add metrics endpoint for Prometheus scraping
+        
+        // Prometheus metrics endpoint for monitoring and observability
         .route("/metrics", axum::routing::get(metrics_handler))
-        // Mount auth routes (with auth-specific rate limiting)
+        
+        // ===========================================
+        // AUTHENTICATION ROUTES
+        // ===========================================
+        // Routes for user login, registration, password reset, etc.
+        // Higher rate limiting due to security sensitivity
         .nest(
             "/auth",
             auth::auth_router().layer(middleware::from_fn(
@@ -188,7 +205,14 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                 },
             )),
         )
-        // Mount blog module (public routes with read-only rate limiting + domain + analytics middleware)
+        
+        // ===========================================
+        // PUBLIC BLOG CONTENT ROUTES (Domain-scoped)
+        // ===========================================
+        // Public-facing blog content: posts, categories, search, etc.
+        // Requires domain context (extracted from subdomain or x-domain header)
+        // Includes analytics tracking for visitor behavior
+        // Read-only rate limiting (more permissive than admin routes)
         .merge(
             BlogModule::routes()
                 .layer(middleware::from_fn_with_state(
@@ -213,7 +237,14 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                     },
                 )),
         )
-        // Mount session tracking (public routes with default rate limiting + domain + analytics middleware)
+        
+        // ===========================================
+        // USER SESSION TRACKING ROUTES (Domain-scoped)
+        // ===========================================
+        // Session lifecycle management: create, update, end sessions
+        // Used for analytics and user behavior tracking
+        // Requires domain context for proper attribution
+        // Default rate limiting (moderate protection)
         .nest(
             "/session",
             Router::new()
@@ -242,17 +273,25 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                     },
                 )),
         )
-        // Mount admin module (auth + domain required, with admin rate limiting)
+        
+        // ===========================================
+        // ADMIN PANEL ROUTES (Authentication required)
+        // ===========================================
+        // All admin panel functionality in one place:
+        // - Content management: posts, categories, settings
+        // - User management: list, create, update, delete users
+        // - User preferences: profile settings, preferences
+        // - Domain management: create, configure domains
+        // 
+        // Authentication required for all routes
+        // Higher rate limiting for security
+        // Domain context passed as query parameters when needed
         .nest(
             AdminModule::mount_path(),
             AdminModule::routes()
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     auth_middleware,
-                ))
-                .layer(middleware::from_fn_with_state(
-                    state.clone(),
-                    domain_middleware,
                 ))
                 .layer(middleware::from_fn(
                     {
@@ -274,47 +313,20 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                     },
                 )),
         )
-        // Mount global admin routes (auth required, but no domain context needed)
-        .nest(
-            "/admin",
-            Router::new()
-                .route(
-                    "/profile/preferences",
-                    axum::routing::get(admin::get_user_preferences)
-                        .put(admin::update_user_preferences),
-                )
-                .route("/users", axum::routing::get(admin::list_users).post(admin::create_user))
-                .route(
-                    "/users/{id}",
-                    axum::routing::get(admin::get_user)
-                        .put(admin::update_user)
-                        .delete(admin::delete_user),
-                )
-                .layer(middleware::from_fn_with_state(
-                    state.clone(),
-                    auth_middleware,
-                ))
-                .layer(middleware::from_fn(
-                    {
-                        let admin_rate_limiter = admin_rate_limiter.clone();
-                        move |ConnectInfo(addr): ConnectInfo<SocketAddr>, req, next| {
-                            let admin_rate_limiter = admin_rate_limiter.clone();
-                            async move {
-                                admin_rate_limiter
-                                    .apply(ClientIp(addr.ip()), req, next)
-                                    .await
-                                    .unwrap_or_else(|status| {
-                                        axum::response::Response::builder()
-                                            .status(status)
-                                            .body("Rate limit exceeded".into())
-                                            .unwrap()
-                                    })
-                            }
-                        }
-                    },
-                )),
-        )
-        // Mount analytics endpoints (auth required)
+        
+        // ===========================================
+        // ANALYTICS ROUTES (Authentication required)
+        // ===========================================
+        // Analytics and reporting endpoints:
+        // - Dashboard: overview metrics and charts
+        // - Traffic: visitor stats, page views, referrers
+        // - Content: post performance, search analytics
+        // - Real-time: current active users and recent events
+        // - Export: data export for external analysis
+        // - Behavior tracking: click events, scroll depth, engagement
+        // 
+        // Cross-domain analytics (aggregates data across all user's domains)
+        // User permissions determine which domains they can view analytics for
         .nest(
             "/analytics",
             Router::new()
@@ -360,12 +372,25 @@ pub fn create_app(state: Arc<AppState>) -> Router {
                     auth_middleware,
                 )),
         )
-        // Add HTTP tracing middleware for all routes
+        
+        // ===========================================
+        // GLOBAL MIDDLEWARE LAYERS
+        // ===========================================
+        // Applied to ALL routes in order of application:
+        
+        // HTTP tracing: logs all requests/responses for debugging
         .layer(middleware::from_fn(http_tracing_middleware))
+        
+        // Performance monitoring: tracks response times and resource usage
         .layer(middleware::from_fn(performance_monitoring_middleware))
+        
+        // Error tracking: captures and reports application errors
         .layer(middleware::from_fn(error_tracking_middleware))
-        // Add CORS layer for all routes
+        
+        // CORS configuration: enables cross-origin requests from frontend
         .layer({
+            // Parse allowed origins from environment variable
+            // Default: local development URLs (localhost:3000, localhost:5173)
             let cors_origins = env::var("CORS_ORIGINS")
                 .unwrap_or_else(|_| "http://localhost:3000,http://localhost:5173".to_string());
 

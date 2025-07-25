@@ -42,7 +42,7 @@ dev-frontend: ## Start frontend development server
 
 dev-backend: ## Start backend development server  
 	@echo "⚙️  Starting backend development server..."
-	cd api && cargo run --bin api
+	cd apps/api && cargo run --bin api
 
 dev-both: ## Start both frontend and backend concurrently
 	@echo "🚀 Starting both development servers..."
