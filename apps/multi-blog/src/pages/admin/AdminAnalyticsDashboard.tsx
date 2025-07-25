@@ -1,4 +1,18 @@
-import React from 'react'
+// External libraries
+
+// Jotai hooks
+import {
+  useAnalyticsData,
+  useAnalyticsFormatters,
+  useAnalyticsNavigation,
+  useAnalyticsPeriod,
+  useReferrerData,
+  useRefreshAnalytics,
+  useSearchData,
+  useThemeStyles,
+  useTrafficData,
+} from '@state/hooks/useAnalyticsDashboard'
+import { useAnalyticsDataProvider } from '@state/providers/useAnalyticsDataProvider'
 import {
   Activity,
   ArrowLeft,
@@ -16,8 +30,6 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   Area,
   AreaChart,
@@ -30,29 +42,40 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { usePreferences } from '@/data/hooks/useUserPreferences'
-import { useAllAnalyticsData } from '@/data/hooks/useAnalyticsData'
+// UI Components
+import ChartWrapper from '@/components/ui/ChartWrapper'
+import DataSection from '@/components/ui/DataSection'
+// Constants and utilities
+import { ANALYTICS_CONSTANTS } from '@/constants'
+// Types
+import type { ChartColors } from '@/types/admin'
 
-const AdminAnalyticsDashboard: React.FC = () => {
-  const navigate = useNavigate()
+const AdminAnalyticsDashboard = () => {
+  // Initialize data provider to sync SWR with Jotai atoms
+  useAnalyticsDataProvider()
 
-  // Calculate effective theme
-  const { preferences } = usePreferences()
+  // Use Jotai hooks for all state and computed values
+  const navigateToRoute = useAnalyticsNavigation()
+  const [selectedPeriod, setSelectedPeriod] = useAnalyticsPeriod()
+  const themeStyles = useThemeStyles()
+  const data = useAnalyticsData()
+  const trafficData = useTrafficData()
+  const searchData = useSearchData()
+  const referrerData = useReferrerData()
+  const refreshData = useRefreshAnalytics()
+  const formatters = useAnalyticsFormatters()
 
-  // Calculate effective theme using state and effect
-  const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>('light')
-  useEffect(() => {
-    if (preferences.appearance.theme === 'system') {
-      setEffectiveTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-    } else {
-      setEffectiveTheme(preferences.appearance.theme)
-    }
-  }, [preferences])
+  // Loading state - we can enhance this later with proper atoms
+  const isLoading = !data
 
-  const [selectedPeriod, setSelectedPeriod] = useState(30)
+  // Create refresh handler that works with DataSection
+  const handleRefresh = () => refreshData('manual')
 
-  // Use SWR for all analytics data - no more manual useEffect!
-  const { data, trafficData, searchData, referrerData, isLoading, refreshAll } = useAllAnalyticsData(selectedPeriod)
+  // Extract formatters for easy access
+  const formatDuration = formatters?.duration || ((val: number) => `${val}s`)
+  const formatPercentage =
+    formatters?.percentage || ((val: number) => `${val}%`)
+  const formatNumber = formatters?.number || ((val: number) => val.toString())
 
   if (isLoading) {
     return (
@@ -60,7 +83,9 @@ const AdminAnalyticsDashboard: React.FC = () => {
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading analytics...</p>
+            <p className="text-gray-600 dark:text-gray-400">
+              Loading analytics...
+            </p>
           </div>
         </div>
       </div>
@@ -82,30 +107,7 @@ const AdminAnalyticsDashboard: React.FC = () => {
     )
   }
 
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = seconds % 60
-    return `${minutes}m ${remainingSeconds}s`
-  }
-
-  const formatPercentage = (value: number) => `${Math.round(value * 100)}%`
-
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
-    return num.toString()
-  }
-
-  // Chart colors - responsive to theme
-  const isDark = effectiveTheme === 'dark'
-
-  const chartColors = {
-    primary: '#8b5cf6',
-    secondary: '#06b6d4',
-    accent: '#f59e0b',
-    success: '#10b981',
-    danger: '#ef4444',
-  }
+  const chartColors: ChartColors = ANALYTICS_CONSTANTS.CHART_COLORS
 
   const pieChartColors = [
     chartColors.primary,
@@ -115,20 +117,16 @@ const AdminAnalyticsDashboard: React.FC = () => {
     chartColors.danger,
   ]
 
-  // Chart styling for theme
-  const chartGridColor = isDark ? '#374151' : '#f1f5f9'
-  const chartAxisColor = isDark ? '#9ca3af' : '#64748b'
-  const chartTooltipBg = isDark ? '#1f2937' : '#ffffff'
-  const chartTooltipBorder = isDark ? '#374151' : '#e2e8f0'
-
   return (
     <div className="p-6 max-w-7xl mx-auto bg-slate-50 dark:bg-gray-900 min-h-screen">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center space-x-4">
           <button
-            onClick={() => navigate('/admin')}
-            className="flex items-center space-x-2 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors">
+            type="button"
+            onClick={() => navigateToRoute('admin')}
+            className="flex items-center space-x-2 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors"
+          >
             <ArrowLeft size={20} />
             <span className="font-medium">Back to Dashboard</span>
           </button>
@@ -146,32 +144,41 @@ const AdminAnalyticsDashboard: React.FC = () => {
         <div className="flex items-center space-x-3">
           {/* Period selector */}
           <div className="flex items-center space-x-1 bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-1">
-            {[7, 30, 90].map((days) => (
+            {ANALYTICS_CONSTANTS.PERIOD_OPTIONS.map((days) => (
               <button
+                type="submit"
                 key={days}
                 onClick={() => setSelectedPeriod(days)}
-                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${selectedPeriod === days
-                  ? 'bg-purple-600 text-white'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-gray-700'
-                  }`}>
+                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                  selectedPeriod === days
+                    ? 'bg-purple-600 text-white'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-gray-700'
+                }`}
+              >
                 {days}d
               </button>
             ))}
           </div>
           <button
-            onClick={refreshAll}
+            type="button"
+            onClick={handleRefresh}
             disabled={isLoading}
-            className="flex items-center space-x-2 px-4 py-2 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50">
+            className="flex items-center space-x-2 px-4 py-2 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+          >
             <RefreshCw
               size={16}
-              className={`text-slate-600 dark:text-slate-400 ${isLoading ? 'animate-spin' : ''
-                }`}
+              className={`text-slate-600 dark:text-slate-400 ${
+                isLoading ? 'animate-spin' : ''
+              }`}
             />
             <span className="text-slate-700 dark:text-slate-300 font-medium">
               Refresh
             </span>
           </button>
-          <button className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+          <button
+            type="button"
+            className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
             <Download size={16} />
             <span className="font-medium">Export</span>
           </button>
@@ -179,77 +186,89 @@ const AdminAnalyticsDashboard: React.FC = () => {
       </div>
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-              <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Sessions</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {data.overview.total_sessions.toLocaleString()}
-              </p>
+      <DataSection fallbackTitle="Overview Cards Error" onRetry={handleRefresh}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Sessions
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {data.overview.total_sessions.toLocaleString()}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
-              <Eye className="w-6 h-6 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Page Views</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {data.overview.total_page_views.toLocaleString()}
-              </p>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                <Eye className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Page Views
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {data.overview.total_page_views.toLocaleString()}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
-              <Clock className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Avg. Duration</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {formatDuration(data.overview.avg_session_duration)}
-              </p>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                <Clock className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Avg. Duration
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {formatDuration(data.overview.avg_session_duration)}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Bounce Rate</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {formatPercentage(data.overview.bounce_rate)}
-              </p>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                <TrendingUp className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Bounce Rate
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {formatPercentage(data.overview.bounce_rate)}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/20 rounded-lg">
-              <Activity className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Engagement</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {Math.round(data.behavior.engagement_score_avg)}
-              </p>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/20 rounded-lg">
+                <Activity className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Engagement
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {Math.round(data.behavior.engagement_score_avg)}
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </DataSection>
 
       {/* Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -264,8 +283,11 @@ const AdminAnalyticsDashboard: React.FC = () => {
               </h3>
             </div>
             <div className="space-y-3">
-              {data.behavior.top_clicked_elements.slice(0, 5).map((item, index) => (
-                <div key={index} className="flex items-center justify-between">
+              {data.behavior.top_clicked_elements.slice(0, 5).map((item) => (
+                <div
+                  key={item.element}
+                  className="flex items-center justify-between"
+                >
                   <span className="text-sm text-gray-600 dark:text-gray-400 font-mono">
                     {item.element}
                   </span>
@@ -278,32 +300,40 @@ const AdminAnalyticsDashboard: React.FC = () => {
           </div>
 
           {/* Scroll Depth */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Scroll Depth Distribution
-              </h3>
-            </div>
-            <div className="space-y-3">
-              {data.behavior.scroll_depth_distribution.map((item, index) => (
-                <div key={index} className="flex items-center space-x-3">
-                  <span className="text-sm text-gray-600 dark:text-gray-400 w-8">
-                    {item.depth}%
-                  </span>
-                  <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div
-                      className="bg-blue-500 h-2 rounded-full"
-                      style={{ width: `${item.percentage}%` }}
-                    />
+          <DataSection
+            fallbackTitle="Scroll Depth Error"
+            onRetry={handleRefresh}
+          >
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6">
+              <div className="flex items-center space-x-2 mb-4">
+                <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Scroll Depth Distribution
+                </h3>
+              </div>
+              <div className="space-y-3">
+                {data.behavior.scroll_depth_distribution.map((item) => (
+                  <div
+                    key={`depth-${item.depth}`}
+                    className="flex items-center space-x-3"
+                  >
+                    <span className="text-sm text-gray-600 dark:text-gray-400 w-8">
+                      {item.depth}%
+                    </span>
+                    <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-blue-500 h-2 rounded-full"
+                        style={{ width: `${item.percentage}%` }}
+                      />
+                    </div>
+                    <span className="text-sm text-gray-900 dark:text-gray-100 w-12 text-right">
+                      {Math.round(item.percentage)}%
+                    </span>
                   </div>
-                  <span className="text-sm text-gray-900 dark:text-gray-100 w-12 text-right">
-                    {Math.round(item.percentage)}%
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          </DataSection>
         </div>
 
         {/* Search & Content */}
@@ -322,13 +352,17 @@ const AdminAnalyticsDashboard: React.FC = () => {
                   <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                     {formatPercentage(data.search.no_results_rate)}
                   </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">No Results</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    No Results
+                  </p>
                 </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                     {formatPercentage(data.search.search_to_click_rate)}
                   </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">Click Rate</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Click Rate
+                  </p>
                 </div>
               </div>
               <div>
@@ -336,8 +370,11 @@ const AdminAnalyticsDashboard: React.FC = () => {
                   Top Search Queries
                 </h4>
                 <div className="space-y-2">
-                  {data.search.top_queries.slice(0, 5).map((query, index) => (
-                    <div key={index} className="flex items-center justify-between">
+                  {data.search.top_queries.slice(0, 5).map((query) => (
+                    <div
+                      key={`query-${query.query}`}
+                      className="flex items-center justify-between"
+                    >
                       <span className="text-sm text-gray-600 dark:text-gray-400">
                         "{query.query}"
                       </span>
@@ -365,8 +402,11 @@ const AdminAnalyticsDashboard: React.FC = () => {
               </h3>
             </div>
             <div className="space-y-3">
-              {data.content.top_content.slice(0, 5).map((content, index) => (
-                <div key={index} className="border border-gray-100 dark:border-gray-700 rounded-lg p-3">
+              {data.content.top_content.slice(0, 5).map((content) => (
+                <div
+                  key={`content-${content.title}`}
+                  className="border border-gray-100 dark:border-gray-700 rounded-lg p-3"
+                >
                   <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1 line-clamp-1">
                     {content.title}
                   </h4>
@@ -386,11 +426,10 @@ const AdminAnalyticsDashboard: React.FC = () => {
       {trafficData && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Daily Traffic Chart */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Daily Traffic
-              </h3>
+          <ChartWrapper
+            title="Daily Traffic"
+            onRetry={handleRefresh}
+            actions={
               <div className="flex items-center space-x-4 text-sm">
                 <div className="flex items-center space-x-2">
                   <div
@@ -411,34 +450,35 @@ const AdminAnalyticsDashboard: React.FC = () => {
                   </span>
                 </div>
               </div>
-            </div>
+            }
+          >
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trafficData.daily_stats}>
                   <CartesianGrid
                     strokeDasharray="3 3"
-                    stroke={chartGridColor}
+                    stroke={themeStyles.chartGridColor}
                   />
                   <XAxis
                     dataKey="date"
-                    stroke={chartAxisColor}
+                    stroke={themeStyles.chartAxisColor}
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
                   />
                   <YAxis
-                    stroke={chartAxisColor}
+                    stroke={themeStyles.chartAxisColor}
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: chartTooltipBg,
-                      border: `1px solid ${chartTooltipBorder}`,
+                      backgroundColor: themeStyles.chartTooltipBg,
+                      border: `1px solid ${themeStyles.chartTooltipBorder}`,
                       borderRadius: '8px',
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                      color: isDark ? '#f3f4f6' : '#1f2937',
+                      color: themeStyles.isDark ? '#f3f4f6' : '#1f2937',
                     }}
                   />
                   <Area
@@ -460,18 +500,18 @@ const AdminAnalyticsDashboard: React.FC = () => {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </ChartWrapper>
 
           {/* Device Breakdown */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Device Breakdown
-              </h3>
+          <ChartWrapper
+            title="Device Breakdown"
+            onRetry={handleRefresh}
+            actions={
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Last {selectedPeriod} days
               </div>
-            </div>
+            }
+          >
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -499,16 +539,33 @@ const AdminAnalyticsDashboard: React.FC = () => {
                     dataKey="value"
                     label={({ name, percent }) =>
                       `${name} ${((percent || 0) * 100).toFixed(0)}%`
-                    }>
-                    {pieChartColors.map((color, index) => (
-                      <Cell key={`cell-${index}`} fill={color} />
+                    }
+                  >
+                    {[
+                      {
+                        name: 'Desktop',
+                        value: trafficData.device_breakdown.desktop,
+                        icon: Monitor,
+                      },
+                      {
+                        name: 'Mobile',
+                        value: trafficData.device_breakdown.mobile,
+                        icon: Smartphone,
+                      },
+                      {
+                        name: 'Tablet',
+                        value: trafficData.device_breakdown.tablet,
+                        icon: Tablet,
+                      },
+                    ].map((device, index) => (
+                      <Cell key={device.name} fill={pieChartColors[index]} />
                     ))}
                   </Pie>
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </ChartWrapper>
         </div>
       )}
 
@@ -522,27 +579,33 @@ const AdminAnalyticsDashboard: React.FC = () => {
                 Top Performing Posts
               </h3>
               <button
-                onClick={() => navigate('/admin/posts')}
-                className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm font-medium">
+                type="button"
+                onClick={() => navigateToRoute('posts')}
+                className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm font-medium"
+              >
                 View All
               </button>
             </div>
             <div className="space-y-4">
               {data.top_posts.slice(0, 5).map((post, index) => (
-                <div
+                <button
+                  type="button"
                   key={post.id}
                   className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors cursor-pointer group"
-                  onClick={() => navigate(`/admin/posts/${post.id}/edit`)}>
+                  onClick={() => navigateToRoute({ type: 'post', id: post.id })}
+                >
                   <div className="flex items-center space-x-3">
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${index === 0
-                        ? 'bg-yellow-500'
-                        : index === 1
-                          ? 'bg-gray-400'
-                          : index === 2
-                            ? 'bg-orange-600'
-                            : 'bg-slate-400'
-                        }`}>
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
+                        index === 0
+                          ? 'bg-yellow-500'
+                          : index === 1
+                            ? 'bg-gray-400'
+                            : index === 2
+                              ? 'bg-orange-600'
+                              : 'bg-slate-400'
+                      }`}
+                    >
                       {index + 1}
                     </div>
                     <div>
@@ -556,7 +619,7 @@ const AdminAnalyticsDashboard: React.FC = () => {
                     </div>
                   </div>
                   <ExternalLink className="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -574,34 +637,35 @@ const AdminAnalyticsDashboard: React.FC = () => {
               </div>
             </div>
             <div className="space-y-4">
-              {searchData.popular_terms
-                .slice(0, 5)
-                .map((term, _index) => (
-                  <div
-                    key={term.query}
-                    className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                        <Search className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-900 dark:text-slate-100">
-                          {term.query}
-                        </p>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                          {formatNumber(term.count)} searches
-                        </p>
-                      </div>
+              {searchData.popular_terms.slice(0, 5).map((term, _index) => (
+                <div
+                  key={term.query}
+                  className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                      <Search className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                     </div>
-                    <div
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${term.results_found
-                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
-                        : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
-                        }`}>
-                      {term.results_found ? 'Found' : 'No Results'}
+                    <div>
+                      <p className="font-medium text-slate-900 dark:text-slate-100">
+                        {term.query}
+                      </p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {formatNumber(term.count)} searches
+                      </p>
                     </div>
                   </div>
-                ))}
+                  <div
+                    className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      term.results_found
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                        : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                    }`}
+                  >
+                    {term.results_found ? 'Found' : 'No Results'}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -629,7 +693,8 @@ const AdminAnalyticsDashboard: React.FC = () => {
                   ([type, count]) => (
                     <div
                       key={type}
-                      className="flex items-center justify-between">
+                      className="flex items-center justify-between"
+                    >
                       <div className="flex items-center space-x-3">
                         <div className="w-3 h-3 rounded-full bg-purple-500" />
                         <span className="text-slate-700 dark:text-slate-300 capitalize">
@@ -640,7 +705,7 @@ const AdminAnalyticsDashboard: React.FC = () => {
                         {formatNumber(count as number)}
                       </span>
                     </div>
-                  )
+                  ),
                 )}
               </div>
             </div>
@@ -654,7 +719,8 @@ const AdminAnalyticsDashboard: React.FC = () => {
                 {referrerData.top_referrers.slice(0, 5).map((referrer) => (
                   <div
                     key={referrer.referrer}
-                    className="flex items-center justify-between">
+                    className="flex items-center justify-between"
+                  >
                     <div className="flex items-center space-x-3">
                       <ExternalLink className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                       <span className="text-slate-700 dark:text-slate-300 truncate max-w-48">
@@ -682,19 +748,25 @@ const AdminAnalyticsDashboard: React.FC = () => {
             <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
               {formatDuration(data.content.avg_reading_time)}
             </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Average Reading Time</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Average Reading Time
+            </p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-green-600 dark:text-green-400">
               {formatPercentage(data.content.content_completion_rate)}
             </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Content Completion Rate</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Content Completion Rate
+            </p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
               {data.overview.unique_visitors.toLocaleString()}
             </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Unique Visitors</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Unique Visitors
+            </p>
           </div>
         </div>
       </div>

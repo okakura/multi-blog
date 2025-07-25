@@ -30,10 +30,10 @@ import {
 } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useState } from 'react'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { usePreferences } from '@/data/hooks/useUserPreferences'
-import type { ExpandedSections } from '../../types/preferences'
-import { adminToast, showToast } from '../../utils/toast'
+import type { ExpandedSections } from '@/types/preferences'
+import { adminToast, showToast } from '@/utils/toast'
 
 const UserProfile: React.FC = () => {
   const { user } = useAuth()

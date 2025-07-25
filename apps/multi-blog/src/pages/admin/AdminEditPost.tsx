@@ -9,12 +9,12 @@ import {
 import type React from 'react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import RichTextEditor from '../../components/RichTextEditor'
+import RichTextEditor from '@/components/RichTextEditor'
 import { useAdminPost } from '@/data/hooks/useAdminPosts'
-import { useAutoSave } from '../../hooks/useAutoSave'
+import { useAutoSave } from '@/hooks/useAutoSave'
 import { usePreferences } from '@/data/hooks/useUserPreferences'
-import { adminApiService } from '../../services/adminApi'
-import { adminToast, showToast } from '../../utils/toast'
+import { adminApiService } from '@/data/services/adminApi' // TODO: this probably shouldn't be accessed directly
+import { adminToast, showToast } from '@/utils/toast'
 
 const AdminEditPost: React.FC = () => {
   const { id } = useParams<{ id: string }>()

@@ -1,5 +1,5 @@
 // Enhanced analytics service for comprehensive user behavior tracking
-import { buildApiUrl } from '../config/dev'
+import { buildApiUrl } from '@/config/dev'
 
 export interface UserBehaviorEvent {
   type: 'click' | 'scroll' | 'search' | 'read_time' | 'engagement'
@@ -90,7 +90,12 @@ class AnalyticsService {
     })
 
     // Activity tracking for reading time
-    const activityEvents: Array<keyof DocumentEventMap> = ['click', 'scroll', 'mousemove', 'keypress']
+    const activityEvents: Array<keyof DocumentEventMap> = [
+      'click',
+      'scroll',
+      'mousemove',
+      'keypress',
+    ]
     activityEvents.forEach((eventType) => {
       document.addEventListener(eventType, () => {
         this.updateActivity()
@@ -137,20 +142,23 @@ class AnalyticsService {
       document.body.offsetHeight,
       document.documentElement.clientHeight,
       document.documentElement.scrollHeight,
-      document.documentElement.offsetHeight
+      document.documentElement.offsetHeight,
     )
     const windowHeight = window.innerHeight
     const scrollPercent = Math.round(
-      ((scrollTop + windowHeight) / documentHeight) * 100
+      ((scrollTop + windowHeight) / documentHeight) * 100,
     )
 
     this.maxScrollDepth = Math.max(this.maxScrollDepth, scrollPercent)
 
     // Track milestone thresholds
     for (const threshold of this.scrollThresholds) {
-      if (scrollPercent >= threshold && !this.triggeredThresholds.has(threshold)) {
+      if (
+        scrollPercent >= threshold &&
+        !this.triggeredThresholds.has(threshold)
+      ) {
         this.triggeredThresholds.add(threshold)
-        
+
         const scrollEvent: UserBehaviorEvent = {
           type: 'scroll',
           scroll_depth: threshold,
@@ -167,7 +175,11 @@ class AnalyticsService {
   /**
    * Track search queries and results
    */
-  async trackSearch(query: string, resultsCount: number, noResults: boolean = false) {
+  async trackSearch(
+    query: string,
+    resultsCount: number,
+    noResults: boolean = false,
+  ) {
     if (!this.currentSessionId) return
 
     const searchData: SearchAnalytics = {
@@ -192,7 +204,11 @@ class AnalyticsService {
   /**
    * Track search result clicks
    */
-  async trackSearchResultClick(query: string, clickedResult: string, position: number) {
+  async trackSearchResultClick(
+    query: string,
+    clickedResult: string,
+    position: number,
+  ) {
     if (!this.currentSessionId) return
 
     const searchData: Partial<SearchAnalytics> = {
@@ -221,7 +237,7 @@ class AnalyticsService {
     this.readingStartTime = Date.now()
     this.isReading = true
     this.lastActivityTime = Date.now()
-    
+
     console.log('📖 Started reading tracking for:', contentId)
   }
 
@@ -230,7 +246,7 @@ class AnalyticsService {
    */
   private updateActivity() {
     this.lastActivityTime = Date.now()
-    
+
     // Resume reading if paused
     if (!this.isReading && this.readingStartTime) {
       this.isReading = true
@@ -267,32 +283,36 @@ class AnalyticsService {
    */
   private calculateEngagementScore(): number {
     let score = 0
-    
+
     // Base score from time on page (max 40 points)
     const timeOnPage = Date.now() - this.pageStartTime
-    score += Math.min(40, (timeOnPage / 1000) / 60 * 10) // 10 points per minute, max 4 minutes
-    
+    score += Math.min(40, (timeOnPage / 1000 / 60) * 10) // 10 points per minute, max 4 minutes
+
     // Scroll depth score (max 30 points)
     score += (this.maxScrollDepth / 100) * 30
-    
+
     // Engagement events score (max 30 points)
     score += Math.min(30, this.engagementEvents * 2)
-    
+
     return Math.round(score)
   }
 
   /**
    * Track comprehensive content metrics
    */
-  async trackContentMetrics(contentId?: string, contentType: 'post' | 'page' | 'category' = 'page', title?: string) {
+  async trackContentMetrics(
+    contentId?: string,
+    contentType: 'post' | 'page' | 'category' = 'page',
+    title?: string,
+  ) {
     if (!this.currentSessionId) return
 
     // Finalize reading time
     this.pauseReading()
-    
+
     const timeOnPage = Date.now() - this.pageStartTime
     const engagementScore = this.calculateEngagementScore()
-    
+
     // Consider it a bounce if less than 30 seconds and minimal scroll
     const isBounce = timeOnPage < 30000 && this.maxScrollDepth < 25
 
@@ -362,20 +382,22 @@ class AnalyticsService {
   private getElementInfo(element: HTMLElement): string {
     const tagName = element.tagName.toLowerCase()
     const id = element.id ? `#${element.id}` : ''
-    const classes = element.className ? `.${element.className.split(' ').join('.')}` : ''
+    const classes = element.className
+      ? `.${element.className.split(' ').join('.')}`
+      : ''
     const text = element.textContent?.slice(0, 50) || ''
-    
+
     // Special handling for links
     if (tagName === 'a') {
       const href = (element as HTMLAnchorElement).href
       return `${tagName}${id}${classes}[href="${href}"]`
     }
-    
+
     // Special handling for buttons
     if (tagName === 'button' || element.getAttribute('role') === 'button') {
       return `${tagName}${id}${classes}[text="${text}"]`
     }
-    
+
     return `${tagName}${id}${classes}`
   }
 }

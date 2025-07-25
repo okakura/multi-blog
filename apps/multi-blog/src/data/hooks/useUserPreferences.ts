@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import useSWR, { mutate } from 'swr'
-import { adminApiService } from '@/services/adminApi'
-import { performanceMetrics } from '@/services/performanceMetrics'
+import { adminApiService } from '@/data/services/adminApi'
+import { performanceMetrics } from '@/data/services/performanceMetrics'
 import type {
   PreferenceCategory,
   PreferenceKey,
@@ -81,7 +81,7 @@ const fetchPreferences = async (): Promise<UserPreferences> => {
 const getPreferenceToastMessage = (
   category: PreferenceCategory,
   key: string,
-  value: any
+  value: any,
 ): string | null => {
   if (category === 'appearance') {
     if (key === 'theme') return `Theme changed to ${value}`
@@ -119,7 +119,7 @@ export const usePreferences = () => {
     onError: (error) => {
       performanceMetrics.trackError(
         'preferences_swr',
-        error instanceof Error ? error.message : 'SWR error'
+        error instanceof Error ? error.message : 'SWR error',
       )
     },
   })
@@ -188,7 +188,7 @@ export const usePreferences = () => {
   const updatePreference = async <T extends PreferenceCategory>(
     category: T,
     key: PreferenceKey<T>,
-    value: any
+    value: any,
   ) => {
     const startTime = performance.now()
 
@@ -226,7 +226,7 @@ export const usePreferences = () => {
           key: key as string,
           success: true,
           optimistic: true,
-        }
+        },
       )
 
       return true
@@ -236,7 +236,7 @@ export const usePreferences = () => {
       performanceMetrics.trackError(
         'preferences_update',
         error instanceof Error ? error.message : 'Update failed',
-        { category, key: key as string, duration }
+        { category, key: key as string, duration },
       )
 
       // Revert on error
@@ -253,9 +253,8 @@ export const usePreferences = () => {
 
     try {
       await mutatePreferences(newPreferences, false)
-      const savedPreferences = await adminApiService.savePreferences(
-        newPreferences
-      )
+      const savedPreferences =
+        await adminApiService.savePreferences(newPreferences)
       await mutatePreferences(savedPreferences, true)
 
       const duration = performance.now() - startTime
@@ -268,7 +267,7 @@ export const usePreferences = () => {
         {
           success: true,
           preferenceCount: Object.keys(newPreferences).length,
-        }
+        },
       )
 
       showToast.success('Preferences saved successfully')
@@ -279,7 +278,7 @@ export const usePreferences = () => {
       performanceMetrics.trackError(
         'preferences_save_all',
         error instanceof Error ? error.message : 'Save failed',
-        { duration }
+        { duration },
       )
 
       await mutatePreferences()
@@ -310,7 +309,7 @@ export const usePreferences = () => {
       performanceMetrics.trackError(
         'preferences_reset_category',
         'Reset failed',
-        { category, duration }
+        { category, duration },
       )
     }
     return success
@@ -362,7 +361,7 @@ export const usePreferences = () => {
       performanceMetrics.trackError(
         'preferences_export',
         error instanceof Error ? error.message : 'Export failed',
-        { duration }
+        { duration },
       )
 
       showToast.error('Failed to export preferences')
@@ -390,7 +389,7 @@ export const usePreferences = () => {
         performanceMetrics.trackError(
           'preferences_import',
           'Save failed after import',
-          { duration, dataSize: data.length }
+          { duration, dataSize: data.length },
         )
       }
       return success
@@ -400,7 +399,7 @@ export const usePreferences = () => {
       performanceMetrics.trackError(
         'preferences_import',
         error instanceof Error ? error.message : 'Import failed',
-        { duration, dataSize: data.length }
+        { duration, dataSize: data.length },
       )
 
       showToast.error('Failed to import preferences - invalid format')
@@ -412,7 +411,7 @@ export const usePreferences = () => {
   // Get a specific preference value
   const getPreference = <T extends PreferenceCategory>(
     category: T,
-    key: PreferenceKey<T>
+    key: PreferenceKey<T>,
   ) => {
     return preferences[category][key]
   }
@@ -445,7 +444,7 @@ export const invalidateUserPreferences = () => {
 
 // Global function to update preferences cache without API call (for immediate UI updates)
 export const updatePreferencesCache = (
-  updater: (current: UserPreferences) => UserPreferences
+  updater: (current: UserPreferences) => UserPreferences,
 ) => {
   return mutate(
     PREFERENCES_KEY,
@@ -453,7 +452,7 @@ export const updatePreferencesCache = (
       if (!currentData) return defaultPreferences
       return updater(currentData)
     },
-    false
+    false,
   )
 }
 

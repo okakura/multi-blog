@@ -1,5 +1,5 @@
 import type { SWRConfiguration } from 'swr'
-import { apiService } from '../services/api'
+import { apiService } from '@/data/services/api'
 
 // SWR fetcher function that works with our API service
 export const fetcher = async (url: string, domain?: string) => {

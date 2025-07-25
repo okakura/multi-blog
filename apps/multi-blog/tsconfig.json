@@ -13,7 +13,7 @@
     "resolveJsonModule": true,
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    
+
     /* path mapping */
     "baseUrl": ".",
     "paths": {
@@ -27,7 +27,8 @@
       "@/contexts/*": ["src/contexts/*"],
       "@/pages/*": ["src/pages/*"],
       "@/lib/*": ["src/lib/*"],
-      "@/config/*": ["src/config/*"]
+      "@/config/*": ["src/config/*"],
+      "@state/*": ["src/state/*"]
     },
 
     /* type checking */
@@ -35,5 +36,5 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["src"]
+  "include": ["src", "src/state"]
 }

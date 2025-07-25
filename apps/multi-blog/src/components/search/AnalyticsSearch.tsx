@@ -1,8 +1,8 @@
 import { Search, X } from 'lucide-react'
-import type React from 'react'
+import type { FC } from 'react'
 import { useEffect, useState } from 'react'
-import { useAnalytics } from '../../hooks/useAnalytics'
 import { useBlogPosts } from '@/data/hooks/useBlogPosts'
+import { useAnalytics } from '@/hooks/useAnalytics'
 
 interface AnalyticsSearchProps {
   domain?: string
@@ -11,7 +11,7 @@ interface AnalyticsSearchProps {
   className?: string
 }
 
-export const AnalyticsSearch: React.FC<AnalyticsSearchProps> = ({
+export const AnalyticsSearch: FC<AnalyticsSearchProps> = ({
   domain = 'default',
   onResults,
   placeholder = 'Search posts...',
@@ -51,14 +51,16 @@ export const AnalyticsSearch: React.FC<AnalyticsSearchProps> = ({
     }
 
     // Perform search across posts
-    const results = posts.filter((post) => {
-      return (
-        post.title.toLowerCase().includes(trimmedQuery) ||
-        post.category.toLowerCase().includes(trimmedQuery) ||
-        post.author.toLowerCase().includes(trimmedQuery) ||
-        post.slug.toLowerCase().includes(trimmedQuery)
-      )
-    }).slice(0, 10) // Limit to top 10 results
+    const results = posts
+      .filter((post) => {
+        return (
+          post.title.toLowerCase().includes(trimmedQuery) ||
+          post.category.toLowerCase().includes(trimmedQuery) ||
+          post.author.toLowerCase().includes(trimmedQuery) ||
+          post.slug.toLowerCase().includes(trimmedQuery)
+        )
+      })
+      .slice(0, 10) // Limit to top 10 results
 
     setSearchResults(results)
     setShowResults(true)
@@ -131,12 +133,15 @@ export const AnalyticsSearch: React.FC<AnalyticsSearchProps> = ({
           {isSearching ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
-              <span className="ml-2 text-gray-600 dark:text-gray-400">Searching...</span>
+              <span className="ml-2 text-gray-600 dark:text-gray-400">
+                Searching...
+              </span>
             </div>
           ) : searchResults.length > 0 ? (
             <div className="py-2">
               <div className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b border-gray-100 dark:border-gray-700">
-                {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} found
+                {searchResults.length} result
+                {searchResults.length !== 1 ? 's' : ''} found
               </div>
               {searchResults.map((result, index) => (
                 <button
@@ -150,7 +155,8 @@ export const AnalyticsSearch: React.FC<AnalyticsSearchProps> = ({
                         {result.title}
                       </h4>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                        {result.slug.replace(/-/g, ' ')} • {new Date(result.created_at).toLocaleDateString()}
+                        {result.slug.replace(/-/g, ' ')} •{' '}
+                        {new Date(result.created_at).toLocaleDateString()}
                       </p>
                       <div className="flex items-center space-x-2 mt-2">
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-300">

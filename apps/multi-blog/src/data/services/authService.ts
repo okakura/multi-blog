@@ -1,5 +1,5 @@
 // src/services/authService.ts
-import { API_CONFIG, buildApiUrl } from '../config/dev'
+import { API_CONFIG, buildApiUrl } from '@/config/dev'
 
 export interface LoginCredentials {
   email: string

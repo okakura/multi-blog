@@ -9,7 +9,7 @@ import {
 	type CreatePostRequest,
 	type Domain,
 	type UpdateDomainRequest,
-} from "@/services/adminApi";
+} from "@/data/services/adminApi";
 
 // Cache key creator for admin posts
 const createAdminCacheKey = {

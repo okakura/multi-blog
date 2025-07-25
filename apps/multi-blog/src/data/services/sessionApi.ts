@@ -1,5 +1,5 @@
 // Session tracking API service for real-time analytics
-import { buildApiUrl } from '../config/dev'
+import { buildApiUrl } from '@/config/dev'
 
 export interface SessionData {
   id?: string

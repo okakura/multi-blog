@@ -20,6 +20,7 @@ export default defineConfig({
       '@/pages': './src/pages',
       '@/lib': './src/lib',
       '@/config': './src/config',
+      '@/state': './src/state',
     },
   },
   

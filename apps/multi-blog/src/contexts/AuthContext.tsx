@@ -1,6 +1,6 @@
 import type React from 'react'
 import { createContext, useContext, useEffect, useState } from 'react'
-import { authService } from '../services/authService'
+import { authService } from '@/data/services/authService'
 
 export interface User {
   id: number

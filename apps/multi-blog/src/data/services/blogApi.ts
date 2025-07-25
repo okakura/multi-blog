@@ -1,5 +1,5 @@
 // Public Blog API service for frontend integration
-import { API_CONFIG, buildApiUrl } from '../config/dev'
+import { API_CONFIG, buildApiUrl } from '@/config/dev'
 
 export interface BlogPost {
   id: number

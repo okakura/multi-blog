@@ -23,8 +23,8 @@ import type {
   CreateDomainRequest,
   Domain,
   UpdateDomainRequest,
-} from '../../services/adminApi'
-import { showToast } from '../../utils/toast'
+} from '@/data/services/adminApi' // TODO: this probably shouldn't be accessed directly
+import { showToast } from '@/utils/toast'
 
 interface DomainModalProps {
   isOpen: boolean

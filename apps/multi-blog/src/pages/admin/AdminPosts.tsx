@@ -21,9 +21,9 @@ import {
 import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAdminPosts } from '@/data/hooks/useAdminPosts'
-import { usePreferencesClasses } from '../../hooks/usePreferencesClasses'
+import { usePreferencesClasses } from '@/hooks/usePreferencesClasses'
 import { usePreferences } from '@/data/hooks/useUserPreferences'
-import { adminToast, showToast } from '../../utils/toast'
+import { adminToast, showToast } from '@/utils/toast'
 
 interface Post {
   id: number

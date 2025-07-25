@@ -1,8 +1,8 @@
 // Enhanced session tracking hook with comprehensive analytics integration
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { analyticsService } from '../services/analyticsService'
-import { sessionApiService } from '../services/sessionApi'
+import { analyticsService } from '@/data/services/analyticsService'
+import { sessionApiService } from '@/data/services/sessionApi'
 
 /**
  * Hook to automatically track user sessions and comprehensive analytics

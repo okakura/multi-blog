@@ -8,7 +8,7 @@ if (process.env.NODE_ENV === 'development' && process.env.PROFILING === 'true') 
 }
 import { BrowserRouter } from 'react-router-dom'
 import BlogPlatform from './App'
-import { SWRProvider } from './providers/SWRProvider'
+import { SWRProvider } from '@/data/providers/SWRProvider'
 
 // Enable React DevTools and Profiler in development
 if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {

@@ -1,5 +1,5 @@
 import { SWRConfig } from 'swr'
-import { swrConfig } from '../lib/swr'
+import { swrConfig } from '@/lib/swr'
 
 interface SWRProviderProps {
   children: React.ReactNode

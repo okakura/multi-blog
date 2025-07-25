@@ -22,13 +22,13 @@ import {
   useAdminDomainSettings,
   useAdminDomains,
 } from '@/data/hooks/useAdminPosts'
-import type { Domain } from '../../services/adminApi'
-import { showToast } from '../../utils/toast'
+import type { Domain } from '@/data/services/adminApi'
+import { showToast } from '@/utils/toast'
 import {
   analyzeThemeColor,
   createGradient,
   normalizeThemeColors,
-} from '../../utils/themeUtils'
+} from '@/utils/themeUtils' // TODO: Figure why unused import?
 
 interface ThemeConfig {
   // Support both individual colors and Tailwind gradients

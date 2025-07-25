@@ -1,8 +1,8 @@
 import { ArrowLeft, Calendar, Clock, Share2, Tag, User } from 'lucide-react'
 import React from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ErrorMessage, LoadingSpinner } from '../components'
-import { useAnalytics } from '../hooks/useAnalytics'
+import { ErrorMessage, LoadingSpinner } from '@/components'
+import { useAnalytics } from '@/hooks/useAnalytics' // TODO: fix tracking
 import { useBlogPost } from '@/data/hooks/useBlogPosts'
 import { blogToast } from '../utils/toast'
 

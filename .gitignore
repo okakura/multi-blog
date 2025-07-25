@@ -146,3 +146,5 @@ storybook-static/
 # Custom rules and instructions
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
+vite.config.*.timestamp*
+vitest.config.*.timestamp*

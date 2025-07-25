@@ -1,60 +1,15 @@
 {
   "compilerOptions": {
-    "lib": [
-      "DOM",
-      "ES2020"
-    ],
     "jsx": "react-jsx",
-    "target": "ES2020",
     "noEmit": true,
-    "skipLibCheck": true,
     "useDefineForClassFields": true,
-    "module": "ESNext",
     "verbatimModuleSyntax": true,
     "resolveJsonModule": true,
-    "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": [
-        "src/*"
-      ],
-      "@/components/*": [
-        "src/components/*"
-      ],
-      "@/config/*": [
-        "src/config/*"
-      ],
-      "@/contexts/*": [
-        "src/contexts/*"
-      ],
-      "@/data/*": [
-        "src/data/*"
-      ],
-      "@/hooks/*": [
-        "src/hooks/*"
-      ],
-      "@/lib/*": [
-        "src/lib/*"
-      ],
-      "@/pages/*": [
-        "src/pages/*"
-      ],
-      "@/services/*": [
-        "src/services/*"
-      ],
-      "@/types/*": [
-        "src/types/*"
-      ],
-      "@/utils/*": [
-        "src/utils/*"
-      ]
-    },
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"],
+  "extends": "./tsconfig.base.json"
 }

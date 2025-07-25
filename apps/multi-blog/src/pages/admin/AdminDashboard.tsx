@@ -11,19 +11,19 @@ import {
   Users,
 } from 'lucide-react'
 
-import React from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminPerformanceMetrics from '@/components/admin/AdminPerformanceMetrics'
 import { AdminPreferencesStatus } from '@/components/admin/AdminPreferencesStatus'
 import { useAdminAnalytics, useAdminPosts } from '@/data/hooks/useAdminPosts'
-import type { TopPost } from '@/services/adminApi'
+import type { TopPost } from '@/data/services/adminApi' 
 import { adminToast } from '@/utils/toast'
 
-const AdminDashboard: React.FC = () => {
+const AdminDashboard = () => {
   const navigate = useNavigate()
 
   // Set auth token for development if not already set
-  React.useEffect(() => {
+  useEffect(() => {
     const token = localStorage.getItem('auth_token')
     if (!token) {
       // For development, login automatically to get a real JWT token
@@ -62,7 +62,7 @@ const AdminDashboard: React.FC = () => {
   const { posts: recentPosts, isLoading: postsLoading } = useAdminPosts()
 
   // Auto-refresh analytics every 5 minutes
-  React.useEffect(() => {
+  useEffect(() => {
     const interval = setInterval(
       () => {
         if (!analyticsLoading) {

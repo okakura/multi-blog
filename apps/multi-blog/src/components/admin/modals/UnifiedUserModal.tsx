@@ -15,17 +15,17 @@ import {
 } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useState } from 'react'
-import { adminApiService, type Domain } from '../../../services/adminApi'
+import { adminApiService, type Domain } from '@/data/services/adminApi' // TODO: check if proper swc usage
 import type {
   CreateUserRequest,
   DomainPermission,
   UpdateUserRequest,
   User,
-} from '../../../types'
+} from '@/types'
 import {
   getPermissionBadgeColor,
   getRoleDisplayName,
-} from '../../../utils/permissions'
+} from '@/utils/permissions'
 
 interface UnifiedUserModalProps {
   mode: 'create' | 'edit'

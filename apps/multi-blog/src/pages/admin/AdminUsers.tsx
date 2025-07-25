@@ -13,15 +13,15 @@ import {
   Users,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import DeleteUserModal from '../../components/admin/modals/DeleteUserModal'
-import UnifiedUserModal from '../../components/admin/modals/UnifiedUserModal'
+import DeleteUserModal from '@/components/admin/modals/DeleteUserModal'
+import UnifiedUserModal from '@/components/admin/modals/UnifiedUserModal'
 import { useAdminUsers } from '@/data/hooks/useAdminUsers'
-import type { CreateUserRequest, UpdateUserRequest, User } from '../../types'
+import type { CreateUserRequest, UpdateUserRequest, User } from '@/types'
 import {
   getPermissionBadgeColor,
   getRoleDisplayName,
-} from '../../utils/permissions'
-import { showToast } from '../../utils/toast'
+} from '@/utils/permissions'
+import { showToast } from '@/utils/toast'
 
 // Helper function to format date
 const formatDate = (dateString: string) => {

@@ -10,8 +10,8 @@ import {
   Zap,
 } from 'lucide-react'
 import type React from 'react'
-import { usePerformanceMetrics } from '../../services/performanceMetrics'
-import { showToast } from '../../utils/toast'
+import { usePerformanceMetrics } from '@/data/services/performanceMetrics' // TODO: check if this is correct swr usage
+import { showToast } from '@/utils/toast'
 
 const AdminPerformanceMetrics: React.FC = () => {
   const { metrics, reset, exportMetrics, isEnabled } = usePerformanceMetrics()

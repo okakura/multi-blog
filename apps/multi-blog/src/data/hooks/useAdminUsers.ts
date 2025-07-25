@@ -1,14 +1,14 @@
 // Hook for managing admin users with SWR and API integration
 import { useState } from "react";
 import useSWR from "swr";
-import { adminApiService } from "@/services/adminApi";
-import { performanceMetrics } from "@/services/performanceMetrics";
+import { adminApiService } from "@/data/services/adminApi";
+import { performanceMetrics } from "@/data/services/performanceMetrics";
 import type {
 	CreateUserRequest,
 	UpdateUserRequest,
 	User,
 	UsersResponse,
-} from "../../types";
+} from "@/types";
 
 const API_SERVICE = adminApiService;
 

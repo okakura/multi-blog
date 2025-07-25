@@ -8,7 +8,7 @@ import {
   type BlogPostSummary,
   type BlogPostsResponse,
   blogApiService,
-} from '@/services/blogApi'
+} from '@/data/services/blogApi'
 
 // Cache key creators for blog data
 const createBlogCacheKey = {
